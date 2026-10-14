@@ -73,4 +73,51 @@ export const ITEMS = [
   { id: 'wizard', slot: 'head', icon: '🧙', need: { levels: 6 } },
 ];
 
-export const nameOf = (entry) => (entry.part ? sv.colors[entry.color] : sv.creatures[entry.id] ?? sv.items[entry.id]);
+// The player's things in the game: a magic wand and a balloon style. Each entry sets one
+// `slot` of the gear (see gear.js) to `value`. Wand decorations fit every wand; without
+// one, a wand keeps its own look.
+const WAND_COLORS = {
+  stick: { tra: 0x8b5a2b, lila: 0x9b5de5, rosa: 0xff8fab, vit: 0xffffff, svart: 0x3a2a4d, guld: 0xffc93c, bla: 0x4cc9f0 },
+  // The tip, then the sparkles the wand shoots.
+  glitter: {
+    guld: [0xffd166, 0xffffff, 0xffb703],
+    rosa: [0xff8fab, 0xffffff, 0xf15bb5],
+    bla: [0x8fd3ff, 0xffffff, 0x4cc9f0],
+    gron: [0x9be3c3, 0xffffff, 0x52b788],
+    lila: [0xc7a6ff, 0xffffff, 0x9b5de5],
+    regnbage: [0xff6b6b, 0xffd166, 0x9be3c3, 0x4cc9f0, 0xc77dff],
+  },
+  ribbon: { rosa: 0xff4f9a, lila: 0x9b5de5, bla: 0x4cc9f0, guld: 0xffc93c, rod: 0xff4f6d },
+};
+export const GEAR_PALETTES = WAND_COLORS;
+export const GEAR_PARTS = ['stick', 'glitter', 'ribbon'];
+const GEAR_PRICES = { stick: 10, glitter: 15, ribbon: 10 };
+
+export const GEAR = [
+  { slot: 'wand', value: 'star', icon: '⭐' },
+  { slot: 'wand', value: 'wizard', icon: '🪄' },
+  { slot: 'wand', value: 'heart', icon: '💖', price: 30 },
+  { slot: 'wand', value: 'lollipop', icon: '🍭', price: 40 },
+  { slot: 'wand', value: 'unicorn', icon: '🦄', need: { levels: 4 } },
+  { slot: 'balloon', value: 'mix', icon: '🎈' },
+  { slot: 'balloon', value: 'round', icon: '🎈' },
+  { slot: 'balloon', value: 'cat', icon: '🐱', price: 15 },
+  { slot: 'balloon', value: 'heart', icon: '💗', price: 15 },
+  { slot: 'balloon', value: 'star', icon: '⭐', price: 15 },
+  { slot: 'balloon', value: 'capybara', icon: '🟤', price: 25 },
+  { slot: 'balloon', value: 'fish', icon: '🐟', price: 30 },
+  { slot: 'balloon', value: 'bubble', icon: '🫧', need: { levels: 2 } },
+  ...Object.entries(WAND_COLORS).flatMap(([slot, palette]) =>
+    Object.keys(palette).map((value) => ({
+      slot,
+      value,
+      price: value === 'regnbage' ? 40 : GEAR_PRICES[slot],
+    })),
+  ),
+].map((entry) => ({ ...entry, id: `${entry.slot}:${entry.value}`, gear: true }));
+
+export function nameOf(entry) {
+  if (entry.gear) return sv.gear[entry.slot]?.[entry.value] ?? sv.colors[entry.value];
+  if (entry.part) return sv.colors[entry.color];
+  return sv.creatures[entry.id] ?? sv.items[entry.id];
+}

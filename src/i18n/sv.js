@@ -41,7 +41,7 @@ export const sv = {
 
   colors: {
     brun: 'Brun', lila: 'Lila', rosa: 'Rosa', vit: 'Vit', svart: 'Svart', orange: 'Orange', gra: 'Grå',
-    turkos: 'Turkos', bla: 'Blå', gron: 'Grön', guld: 'Guld', rod: 'Röd',
+    turkos: 'Turkos', bla: 'Blå', gron: 'Grön', guld: 'Guld', rod: 'Röd', tra: 'Trä', regnbage: 'Regnbåge',
   },
   creatures: { cat: 'Katt', capybara: 'Kapybara' },
   nothingOn: 'Inget',
@@ -56,8 +56,17 @@ export const sv = {
 
   // The room, where the pet is dressed and things are bought.
   room: 'Mitt rum',
-  shelves: { creatures: 'Djur', colors: 'Färger', clothes: 'Kläder' },
-  parts: { fur: 'Päls', eyes: 'Ögon', paws: 'Tassar', nose: 'Nos' },
+  shelves: { clothes: 'Kläder', colors: 'Färger', creatures: 'Djur', toys: 'Spelet' },
+  parts: { fur: 'Päls', eyes: 'Ögon', paws: 'Tassar', nose: 'Nos', stick: 'Skaft', glitter: 'Glitter', ribbon: 'Rosett' },
+  gear: {
+    wand: { star: 'Stjärnstav', wizard: 'Trollkarlsstav', heart: 'Hjärtstav', lollipop: 'Klubbstav', unicorn: 'Enhörningsstav' },
+    balloon: {
+      mix: 'Blandat', round: 'Runda', cat: 'Katter', heart: 'Hjärtan', star: 'Stjärnor',
+      capybara: 'Kapybaror', fish: 'Fiskar', bubble: 'Såpbubblor',
+    },
+  },
+  yourWand: 'Din trollstav',
+  noRibbon: 'Ingen',
   plain: 'Vanlig',
   buy: (price) => `Köp för ${price} 🪙`,
   notEnough: (have, price) => [`${have} av ${price} 🪙`, 'Spela för att få fler!'],

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Balloon, BALLOON_COLORS, BALLOON_SHAPES } from './balloon.js';
+import { Balloon, BALLOON_COLORS, shapeFor } from './balloon.js';
 import { Pet } from '../wardrobe/creatures/index.js';
 import { Effects } from './effects.js';
 import { Rainbow } from './rainbow.js';
@@ -198,7 +198,7 @@ export class Game {
     this.sayQuestion(0.4);
 
     const colors = [...BALLOON_COLORS].sort(() => Math.random() - 0.5);
-    const shape = pick(BALLOON_SHAPES);
+    const shape = shapeFor(this.profile.gear.balloon);
     const count = question.choices.length;
     question.choices.forEach((value, i) => {
       const angle = (i - (count - 1) / 2) * SPREAD;

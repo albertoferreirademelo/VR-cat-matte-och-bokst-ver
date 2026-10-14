@@ -2,7 +2,6 @@ import '@fontsource-variable/fredoka';
 import * as THREE from 'three';
 import { Game } from './game/game.js';
 import { Backdrop } from './game/backdrop.js';
-import { starShape, puffy } from './game/shapes.js';
 import { Menu } from './ui/menu.js';
 import { Room } from './room/room.js';
 import { DECKS } from './decks/index.js';
@@ -10,6 +9,8 @@ import { save } from './profiles.js';
 import { unlockAudio, sfx } from './audio.js';
 import { sv } from './i18n/sv.js';
 import { creatureOf } from './wardrobe/look.js';
+import { DEFAULT_GEAR } from './wardrobe/gear.js';
+import { buildWand, wandCursor } from './wardrobe/wands.js';
 import { detectXRMode, requestGameXR } from './xr.js';
 
 // Text is drawn onto canvases, so the font has to be there before anything is built.
@@ -89,10 +90,10 @@ function gameCamera() {
 // On a tall screen it looks down more, so the extra height shows the floor and not the ceiling.
 function roomCamera() {
   camera.clearViewOffset();
-  const needed = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(34)) / camera.aspect));
+  const needed = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(38)) / camera.aspect));
   camera.fov = Math.max(50, needed);
   const tall = THREE.MathUtils.clamp(1 - camera.aspect, 0, 0.6);
-  camera.position.set(0, 1.35 + tall * 0.6, 0.55);
+  camera.position.set(0, 1.4 + tall * 0.6, 1.1);
   camera.lookAt(0, 1.08 - tall * 0.5, -2.5);
 }
 
@@ -126,6 +127,7 @@ detectXR();
 
 async function start(profile, level, useXR) {
   unlockAudio();
+  equip(profile.gear);
   view = 'game';
   fitCamera();
   if (useXR) {
@@ -185,32 +187,35 @@ function backToMenu() {
 const raycaster = new THREE.Raycaster();
 const rotation = new THREE.Matrix4();
 const BEAM_LENGTH = 4;
-const starTip = puffy(starShape(0.032, 0.015), 0.004, 0.006);
+let sparkles = buildWand(DEFAULT_GEAR).userData.sparkles;
 
-function makeWand() {
-  const wand = new THREE.Group();
-  const stick = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.007, 0.009, 0.22, 8).rotateX(Math.PI / 2),
-    new THREE.MeshStandardMaterial({ color: 0x8b3fd9, roughness: 0.4 }),
-  );
-  stick.position.z = -0.11;
-  const star = new THREE.Mesh(starTip, new THREE.MeshBasicMaterial({ color: 0xffd166 }));
-  star.position.z = -0.25;
+function makeBeam() {
   const beam = new THREE.Line(
     new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, -1)]),
     new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 }),
   );
   beam.scale.z = BEAM_LENGTH;
-  wand.add(stick, star, beam);
-  wand.userData = { beam, star };
-  return wand;
+  return beam;
+}
+
+// Puts the player's own wand in each hand, and on a screen as the mouse pointer.
+function equip(gear) {
+  for (const controller of controllers) {
+    const data = controller.userData;
+    if (data.wand) controller.remove(data.wand);
+    data.wand = buildWand(gear);
+    data.star = data.wand.userData.tip;
+    controller.add(data.wand);
+  }
+  sparkles = buildWand(gear).userData.sparkles;
+  canvas.style.setProperty('--wand', wandCursor(gear));
 }
 
 const controllers = [0, 1].map((index) => {
   const controller = renderer.xr.getController(index);
-  const wand = makeWand();
-  controller.add(wand);
-  Object.assign(controller.userData, wand.userData, { flash: 0 });
+  const beam = makeBeam();
+  controller.add(beam);
+  Object.assign(controller.userData, { beam, flash: 0 });
   controller.addEventListener('connected', (event) => (controller.userData.source = event.data));
   controller.addEventListener('disconnected', () => (controller.userData.source = null));
   controller.addEventListener('selectstart', () => {
@@ -241,7 +246,7 @@ function shoot(from) {
   raycaster.ray.at(reach, sparkleAim);
   sparkleStart.copy(from);
   const length = sparkleStart.distanceTo(sparkleAim);
-  game.effects.zap(sparkleStart, sparkleAim.sub(sparkleStart).normalize(), length);
+  game.effects.zap(sparkleStart, sparkleAim.sub(sparkleStart).normalize(), length, sparkles);
   if (hit) game.hit(hit.object);
 }
 
@@ -299,8 +304,10 @@ renderer.setAnimationLoop((time) => {
       data.flash = Math.max(0, data.flash - dt * 5);
       data.beam.scale.z = hit ? hit.distance : BEAM_LENGTH;
       data.beam.material.opacity = 0.35 + 0.65 * data.flash;
-      data.star.rotation.z = t * 2.5;
-      data.star.scale.setScalar(1 + data.flash * 0.8);
+      if (data.star) {
+        data.star.rotation.z = t * 2.5;
+        data.star.scale.setScalar(1 + data.flash * 0.8);
+      }
     }
   } else if (mouseInside && view !== 'menu') {
     raycaster.setFromCamera(mouse, camera);

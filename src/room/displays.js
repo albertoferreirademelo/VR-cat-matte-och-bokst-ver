@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { toon } from '../game/toon.js';
 import { FONT } from '../ui/board.js';
 import { buildItem, disposeItem } from '../wardrobe/items.js';
+import { buildWand } from '../wardrobe/wands.js';
+import { balloonForm } from '../game/balloon.js';
 
 const hitMaterial = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
 
@@ -93,7 +95,8 @@ export class Display extends THREE.Group {
     this.traverse((part) => {
       if (part === this.hit) return;
       part.geometry?.dispose();
-      part.material?.map?.dispose();
+      // A mesh may have one material or a list of them (the lollipop's tip).
+      for (const material of [part.material ?? []].flat()) material.map?.dispose();
     });
   }
 }
@@ -154,5 +157,39 @@ export function figurineDisplay(entry, body) {
   model.add(stand, body);
   const display = new Display(entry, model, [0.42, 0.62]);
   display.body = body;
+  return display;
+}
+
+// A wand standing in a little cup.
+export function wandDisplay(entry, gear) {
+  const model = new THREE.Group();
+  const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.035, 0.07, 18), toon(0xc7a6ff));
+  cup.position.y = 0.035;
+  const wand = buildWand(gear, { upright: true });
+  wand.rotation.x = Math.PI / 2;
+  wand.position.y = 0.02;
+  model.add(cup, wand);
+  model.scale.setScalar(1.5);
+  const display = new Display(entry, model, [0.24, 0.6]);
+  display.sparkles = wand.userData.sparkles;
+  display.tipHeight = (wand.userData.length + 0.06) * 1.5;
+  return display;
+}
+
+// A small balloon (or, for a mix, a bunch of three) floating over the toy chest.
+export function balloonDisplay(entry, shapes, colors) {
+  const model = new THREE.Group();
+  shapes.forEach((shape, i) => {
+    const form = balloonForm(shape, colors[i]);
+    form.position.set((i - (shapes.length - 1) / 2) * 0.13, Math.abs(i - (shapes.length - 1) / 2) * -0.04, 0);
+    form.rotation.z = (i - (shapes.length - 1) / 2) * -0.25;
+    model.add(form);
+  });
+  model.scale.setScalar(0.42);
+  const display = new Display(entry, model, [0.2, 0.26]);
+  display.hit.position.set(0, 0, 0.05);
+  display.tag.position.set(0, -0.15, 0.02);
+  display.tag.scale.setScalar(0.6);
+  display.color = colors[0];
   return display;
 }

@@ -278,7 +278,7 @@ export function buildHouse() {
   const greenery = plant();
   greenery.position.set(2.6, 0, -2.95);
   const toys = blocks();
-  toys.position.set(-2.55, 0, -2.75);
+  toys.position.set(2.15, 0, -2.45);
 
   const wallY = ROOM.height - 0.25;
   house.add(
@@ -297,6 +297,37 @@ export function buildHouse() {
     toys,
   );
   return house;
+}
+
+// A toy chest with its lid thrown open. Returns the group; `userData.lid` can be moved.
+export function toyChest() {
+  const group = new THREE.Group();
+  const side = canvasTexture(256, 128, (g, w, h) => {
+    g.fillStyle = '#c7a6ff';
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = '#ffffff';
+    g.fillRect(0, h * 0.42, w, h * 0.16);
+    g.font = `52px ${FONT}`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = '#ffd166';
+    for (const x of [0.2, 0.5, 0.8]) g.fillText('★', w * x, h * 0.24);
+    g.fillStyle = '#ff8fab';
+    for (const x of [0.35, 0.65]) g.fillText('♥', w * x, h * 0.78);
+  });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.38, 0.46), toon(0xffffff, { map: side }));
+  body.position.y = 0.19;
+  const inside = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.02, 0.4), toon(0x7d4fc9));
+  inside.position.y = 0.36;
+  const lid = new THREE.Group();
+  lid.position.set(0, 0.38, -0.23);
+  const board = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.05, 0.48), toon(0xff9fcf));
+  board.position.set(0, 0.025, 0.24);
+  lid.add(board);
+  lid.rotation.x = -1.9;
+  group.add(body, inside, lid);
+  group.userData.lid = lid;
+  return group;
 }
 
 // A round, pink stage for the pet to stand on.

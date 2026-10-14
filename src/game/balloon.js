@@ -4,19 +4,33 @@ import { heartShape, starShape, puffy } from './shapes.js';
 import { ease, Spring } from './motion.js';
 
 export const BALLOON_COLORS = [0x9b5de5, 0xf15bb5, 0xc77dff, 0x7b2cbf, 0xff8fab, 0x5e60ce, 0x4cc9f0, 0xff9f1c];
-// All balloons of one question share a shape, so none stands out.
+// All balloons of one question share a shape, so none stands out. A player who picked a
+// balloon style (see src/wardrobe/gear.js) gets that shape; 'mix' takes turns with these.
 export const BALLOON_SHAPES = ['round', 'round', 'cat', 'cat', 'heart', 'star'];
+export const shapeFor = (style) => (SHAPES[style] ? style : BALLOON_SHAPES[Math.floor(Math.random() * BALLOON_SHAPES.length)]);
 
 const RADIUS = 0.17;
 const round = new THREE.SphereGeometry(RADIUS, 32, 24).scale(1, 1.15, 1);
+const fishBody = new THREE.SphereGeometry(RADIUS, 32, 24).scale(1.25, 0.95, 0.75);
 // bottom: where the knot sits. front: how far the number floats from the centre.
 const SHAPES = {
   round: { geometry: round, bottom: -RADIUS * 1.15, front: RADIUS * 1.2, label: 0.27 },
   cat: { geometry: round, bottom: -RADIUS * 1.15, front: RADIUS * 1.2, label: 0.27, ears: true },
   heart: { geometry: puffy(heartShape(0.13), 0.03, 0.065), bottom: -0.15, front: 0.115, label: 0.25 },
   star: { geometry: puffy(starShape(0.13, 0.075), 0.03, 0.05), bottom: -0.125, front: 0.1, label: 0.21 },
+  capybara: { geometry: round, bottom: -RADIUS * 1.15, front: RADIUS * 1.2, label: 0.27, roundEars: true },
+  fish: { geometry: fishBody, bottom: -RADIUS * 0.95, front: RADIUS * 1.0, label: 0.25, fish: true },
+  // A soap bubble: see-through and shiny, floating free without a string.
+  bubble: { geometry: new THREE.SphereGeometry(RADIUS * 1.05, 32, 24), bottom: -RADIUS, front: RADIUS * 1.15, label: 0.27, bubble: true },
 };
 const earGeo = new THREE.ConeGeometry(0.08, 0.14, 16);
+const roundEarGeo = new THREE.SphereGeometry(0.05, 14, 10);
+const tailGeo = new THREE.ConeGeometry(0.1, 0.13, 3);
+const finGeo = new THREE.ConeGeometry(0.05, 0.09, 3);
+const shineGeo = new THREE.SphereGeometry(0.035, 12, 8);
+const fishEyeGeo = new THREE.SphereGeometry(0.022, 12, 8);
+const fishEyeMat = new THREE.MeshBasicMaterial({ color: 0x2b1b3d });
+const shineMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 });
 const knotGeo = new THREE.ConeGeometry(0.025, 0.04, 12);
 const stringGeo = new THREE.CylinderGeometry(0.003, 0.003, 0.4, 4);
 const stringMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
@@ -50,6 +64,70 @@ function labelTexture(text) {
   return texture;
 }
 
+// The balloon itself, without its number: one shape in one colour, with knot and string.
+// `userData.material` is shared by all its parts.
+export function balloonForm(shape, color) {
+  const form = SHAPES[shape] ?? SHAPES.round;
+  const material = form.bubble
+    ? new THREE.MeshStandardMaterial({
+        color: 0xdff6ff,
+        roughness: 0.05,
+        transparent: true,
+        opacity: 0.4,
+        emissive: color,
+        emissiveIntensity: 0.35,
+        depthWrite: false,
+      })
+    : new THREE.MeshStandardMaterial({ color, roughness: 0.22, emissive: color, emissiveIntensity: 0.12 });
+  const group = new THREE.Group();
+  group.add(new THREE.Mesh(form.geometry, material));
+  if (form.ears) {
+    for (const side of [-1, 1]) {
+      const ear = new THREE.Mesh(earGeo, material);
+      ear.position.set(side * 0.105, 0.185, 0);
+      ear.rotation.z = -side * 0.42;
+      ear.scale.z = 0.7;
+      group.add(ear);
+    }
+  }
+  if (form.roundEars) {
+    for (const side of [-1, 1]) {
+      const ear = new THREE.Mesh(roundEarGeo, material);
+      ear.position.set(side * 0.1, 0.17, -0.01);
+      ear.scale.z = 0.6;
+      group.add(ear);
+    }
+  }
+  if (form.fish) {
+    const tail = new THREE.Mesh(tailGeo, material);
+    tail.position.x = -0.25;
+    tail.rotation.z = Math.PI / 2;
+    tail.scale.z = 0.35;
+    const fin = new THREE.Mesh(finGeo, material);
+    fin.position.set(0.02, 0.16, 0);
+    fin.scale.z = 0.3;
+    group.add(tail, fin);
+    for (const side of [-1, 1]) {
+      const eye = new THREE.Mesh(fishEyeGeo, fishEyeMat);
+      eye.position.set(0.15, 0.04, side * 0.095);
+      group.add(eye);
+    }
+  }
+  if (form.bubble) {
+    const shine = new THREE.Mesh(shineGeo, shineMat);
+    shine.position.set(-0.07, 0.08, 0.14);
+    group.add(shine);
+  } else {
+    const knot = new THREE.Mesh(knotGeo, material);
+    knot.position.y = form.bottom - 0.012;
+    const string = new THREE.Mesh(stringGeo, stringMat);
+    string.position.y = knot.position.y - 0.22;
+    group.add(knot, string);
+  }
+  group.userData.material = material;
+  return group;
+}
+
 export class Balloon extends THREE.Group {
   constructor(value, color, shape = 'round', delay = 0) {
     super();
@@ -68,29 +146,9 @@ export class Balloon extends THREE.Group {
     this.size = new Spring(1);
     this.front = form.front;
 
-    this.material = new THREE.MeshStandardMaterial({
-      color,
-      roughness: 0.22,
-      emissive: color,
-      emissiveIntensity: 0.12,
-    });
     // The visible balloon wobbles; the number and hit area stay steady.
-    this.form = new THREE.Group();
-    this.form.add(new THREE.Mesh(form.geometry, this.material));
-    if (form.ears) {
-      for (const side of [-1, 1]) {
-        const ear = new THREE.Mesh(earGeo, this.material);
-        ear.position.set(side * 0.105, 0.185, 0);
-        ear.rotation.z = -side * 0.42;
-        ear.scale.z = 0.7;
-        this.form.add(ear);
-      }
-    }
-    const knot = new THREE.Mesh(knotGeo, this.material);
-    knot.position.y = form.bottom - 0.012;
-    const string = new THREE.Mesh(stringGeo, stringMat);
-    string.position.y = knot.position.y - 0.22;
-    this.form.add(knot, string);
+    this.form = balloonForm(shape, color);
+    this.material = this.form.userData.material;
 
     this.hit = new THREE.Mesh(hitGeo, hitMat);
     this.hit.userData.owner = this;

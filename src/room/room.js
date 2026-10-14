@@ -1,10 +1,12 @@
 import * as THREE from 'three';
-import { buildHouse, podium, frame, mobile, ROOM } from './house.js';
+import { buildHouse, podium, frame, mobile, toyChest, ROOM } from './house.js';
 import { Wardrobe, FACE, shelfBoard } from './wardrobe.js';
-import { Tag, itemDisplay, potDisplay, figurineDisplay } from './displays.js';
+import { Tag, itemDisplay, potDisplay, figurineDisplay, wandDisplay, balloonDisplay } from './displays.js';
 import { Pet, makeBody, picture } from '../wardrobe/creatures/index.js';
-import { CREATURES, ITEMS, COLORS, PALETTES, nameOf } from '../wardrobe/catalog.js';
+import { CREATURES, ITEMS, COLORS, PALETTES, GEAR, GEAR_PALETTES, nameOf } from '../wardrobe/catalog.js';
 import { dressedIn, isWearing, paletteOf, asCreature, creatureOf } from '../wardrobe/look.js';
+import { withGear, isUsing } from '../wardrobe/gear.js';
+import { buildWand } from '../wardrobe/wands.js';
 import { owns, progressOf } from '../wardrobe/unlocks.js';
 import { buy } from '../wardrobe/shop.js';
 import { Board, BOARD_STYLES } from '../ui/board.js';
@@ -16,8 +18,9 @@ const SHELVES = [
   { id: 'clothes', icon: '👑' },
   { id: 'colors', icon: '🎨' },
   { id: 'creatures', icon: '🐾' },
+  { id: 'toys', icon: '✨' },
 ];
-const MOVES = { clothes: 'spin', colors: 'hop', creatures: 'wave' };
+const MOVES = { clothes: 'spin', colors: 'hop', creatures: 'wave', toys: 'clap' };
 const TRICKS = ['hop', 'spin', 'flip', 'dance', 'clap', 'wave'];
 const PET_SPOT = new THREE.Vector3(0, 0.2, -2.05);
 const OFFER_Y = 1.45;
@@ -30,10 +33,29 @@ const COLOR_BLOCKS = [
   ['paws', 1, 0.82],
   ['nose', 1, 0.02],
 ];
+const DECORATION_BLOCKS = [
+  ['stick', 0.85],
+  ['glitter', 0.25],
+  ['ribbon', -0.35],
+];
 const POT_COLUMNS = [-0.3, -0.1, 0.1, 0.3];
 
-// The pet's room: a wardrobe full of things to try on, buy or aim for, and the pet
-// on a little stage in front of it. Tapping a thing tries it on; owned things stay on.
+// The balloons over the toy chest: the shapes and colours each style shows.
+const BALLOON_LOOKS = {
+  mix: [['round', 'heart', 'star'], [0xf15bb5, 0x9b5de5, 0x4cc9f0]],
+  round: [['round'], [0xff8fab]],
+  cat: [['cat'], [0x9b5de5]],
+  heart: [['heart'], [0xf15bb5]],
+  star: [['star'], [0xff9f1c]],
+  capybara: [['capybara'], [0xc8956a]],
+  fish: [['fish'], [0x4cc9f0]],
+  bubble: [['bubble'], [0x8fd3ff]],
+};
+const CHEST = new THREE.Vector3(-1.8, 0, -1.7);
+const CHEST_TURN = 0.6;
+
+// The pet's room: a wardrobe full of things to try on, buy or aim for, a toy chest with
+// balloons, and the pet on a little stage. Tapping a thing tries it on; owned things stay on.
 export class Room extends THREE.Group {
   // `onPurse(profile)` is told whenever the player's stars or coins may have changed.
   constructor(camera, { onSave, onPurse }) {
@@ -45,6 +67,7 @@ export class Room extends THREE.Group {
     this.profile = null;
     this.shelf = 'clothes';
     this.trying = null;
+    this.hovered = new Set();
     this.cameraPosition = new THREE.Vector3();
     this.gaze = new THREE.Vector3();
 
@@ -81,10 +104,43 @@ export class Room extends THREE.Group {
     this.cancelButton.position.set(0.62, OFFER_Y, -1.88);
     this.buttons = [this.buyButton, this.cancelButton];
 
+    // The player's wand, big beside the pet while the game's things are shown.
+    this.wandShow = new THREE.Group();
+    this.wandShow.position.set(0.58, 0.5, -1.8);
+    this.wandLabel = new Tag();
+    this.wandLabel.show(sv.yourWand);
+    this.wandLabel.position.y = -0.08;
+    this.wandShow.add(this.wandLabel);
+    this.wandModel = null;
+    this.wandKey = null;
+
+    // A toy chest by the window, with the balloon styles floating out of it.
+    this.chest = toyChest();
+    this.chest.position.copy(CHEST);
+    this.chest.rotation.y = CHEST_TURN;
+    this.chestHit = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 0.5), hitMaterial);
+    this.chestHit.position.set(CHEST.x, 0.25, CHEST.z);
+    this.chestHit.rotation.y = CHEST_TURN;
+    this.chestHit.userData.onHit = () => this.showShelf('toys');
+    this.balloons = this.buildBalloons();
+
     this.mobile = mobile();
     this.mobile.position.set(0, ROOM.height - 0.3, -0.7);
     this.effects = new Effects();
-    this.add(stage, this.pet, this.petHit, this.portrait, this.mobile, this.note, ...this.buttons, this.effects);
+    this.add(
+      stage,
+      this.pet,
+      this.petHit,
+      this.portrait,
+      this.mobile,
+      this.note,
+      ...this.buttons,
+      this.wandShow,
+      this.chest,
+      this.chestHit,
+      ...this.balloons,
+      this.effects,
+    );
 
     // One group per shelf on each door; only the chosen shelf is shown.
     this.groups = {};
@@ -100,14 +156,35 @@ export class Room extends THREE.Group {
     this.buildClothes();
     this.buildCreatures();
     this.colorsFor = null;
+    this.toysFor = null;
   }
 
   // Puts a display on a shelf of door `side` (0 left, 1 right) at height `y`.
   place(shelf, side, display, x, y, width) {
     display.position.set(x, y, 0);
-    display.hit.userData.onHit = () => this.pick(display.entry);
-    this.groups[shelf][side].add(shelfBoard(width, y + 0.0), display);
+    display.hit.userData.onHit = () => this.pick(display.entry, display);
+    if (width) this.groups[shelf][side].add(shelfBoard(width, y));
+    this.groups[shelf][side].add(display);
     this.displays[shelf].push(display);
+  }
+
+  // Empties a shelf that is rebuilt when something it shows changes.
+  clearShelf(shelf) {
+    for (const display of this.displays[shelf]) display.dispose();
+    for (const group of this.groups[shelf]) group.clear();
+    this.displays[shelf] = [];
+  }
+
+  // A labelled block of paint pots: `entries` are [entry, colours] pairs, four to a row.
+  potBlock(shelf, side, top, label, entries) {
+    const tag = new Tag(0.3, 0.08);
+    tag.show(label);
+    tag.position.set(0, top, 0.02);
+    this.groups[shelf][side].add(tag);
+    entries.forEach(([entry, colors], i) => {
+      const y = top - (shelf === 'toys' ? 0.2 : 0.24) - Math.floor(i / 4) * (shelf === 'toys' ? 0.22 : 0.27);
+      this.place(shelf, side, potDisplay(entry, colors), POT_COLUMNS[i % 4], y, i % 4 === 0 ? FACE.width * 0.9 : 0);
+    });
   }
 
   buildClothes() {
@@ -126,14 +203,8 @@ export class Room extends THREE.Group {
 
   // Pots of paint. Fur colours depend on the creature, so this is redone when it changes.
   buildColors(look) {
-    for (const display of this.displays.colors) display.dispose();
-    for (const group of this.groups.colors) group.clear();
-    this.displays.colors = [];
+    this.clearShelf('colors');
     for (const [part, side, top] of COLOR_BLOCKS) {
-      const label = new Tag(0.3, 0.08);
-      label.show(sv.parts[part]);
-      label.position.set(0, top, 0.02);
-      this.groups.colors[side].add(label);
       const entries =
         part === 'fur'
           ? Object.entries(paletteOf(look)).map(([color, colors]) => [{ id: `fur:${color}`, part, color }, colors.fur])
@@ -141,18 +212,57 @@ export class Room extends THREE.Group {
               [{ id: `${part}:`, part, color: undefined }, null],
               ...COLORS.filter((entry) => entry.part === part).map((entry) => [entry, PALETTES[part][entry.color]]),
             ];
-      entries.forEach(([entry, colors], i) => {
-        const row = Math.floor(i / 4);
-        const y = top - 0.24 - row * 0.27;
-        if (i % 4 === 0) this.groups.colors[side].add(shelfBoard(FACE.width * 0.9, y));
-        const display = potDisplay(entry, colors);
-        display.position.set(POT_COLUMNS[i % 4], y, 0);
-        display.hit.userData.onHit = () => this.pick(entry);
-        this.groups.colors[side].add(display);
-        this.displays.colors.push(display);
-      });
+      this.potBlock('colors', side, top, sv.parts[part], entries);
     }
     this.colorsFor = look.creature;
+  }
+
+  // Wands on the left door, wearing the player's decorations, and the decorations on the right.
+  buildToys(gear) {
+    this.clearShelf('toys');
+    const wands = GEAR.filter((entry) => entry.slot === 'wand');
+    wands.forEach((entry, i) => {
+      const row = Math.floor(i / 3);
+      const inRow = row === 0 ? 3 : wands.length - 3;
+      const x = ((i % 3) - (inRow - 1) / 2) * 0.27;
+      this.place('toys', 0, wandDisplay(entry, withGear(gear, entry)), x, [0.28, -0.52][row], i % 3 === 0 ? FACE.width * 0.85 : 0);
+    });
+    for (const [slot, top] of DECORATION_BLOCKS) {
+      const swatch = (value) => {
+        const color = GEAR_PALETTES[slot][value];
+        return Array.isArray(color) ? [color[2] ?? color[0], color[0]] : color;
+      };
+      const entries = [
+        [{ id: `${slot}:`, slot, value: undefined, gear: true }, null],
+        ...GEAR.filter((entry) => entry.slot === slot).map((entry) => [entry, swatch(entry.value)]),
+      ];
+      this.potBlock('toys', 1, top, sv.parts[slot], entries);
+    }
+    this.toysFor = decorations(gear);
+  }
+
+  buildBalloons() {
+    return GEAR.filter((entry) => entry.slot === 'balloon').map((entry, i) => {
+      const [shapes, colors] = BALLOON_LOOKS[entry.value];
+      const display = balloonDisplay(entry, shapes, colors);
+      const row = i % 2;
+      const angle = CHEST_TURN;
+      const across = (Math.floor(i / 2) - 1.5) * 0.19 + 0.07;
+      display.position.set(
+        CHEST.x + Math.cos(angle) * across - Math.sin(angle) * (row ? 0.06 : -0.12),
+        row ? 0.95 : 1.28,
+        CHEST.z - Math.sin(angle) * across - Math.cos(angle) * (row ? 0.06 : -0.12),
+      );
+      display.home = display.position.y;
+      display.hit.userData.onHit = () => this.pick(entry, display);
+      // A string from the balloon down into the chest.
+      const string = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -0.07, 0), new THREE.Vector3(0, 0.4 - display.home, 0)]),
+        new THREE.LineBasicMaterial({ color: 0xffffff }),
+      );
+      display.add(string);
+      return display;
+    });
   }
 
   open(profile) {
@@ -177,12 +287,30 @@ export class Room extends THREE.Group {
     this.stopTrying(false);
   }
 
-  pick(entry) {
+  // The displays that can be tapped now: the chosen shelf, and the balloons always.
+  active() {
+    return [...this.displays[this.shelf], ...this.balloons];
+  }
+
+  inUse(entry) {
+    return entry.gear ? isUsing(this.profile.gear, entry) : isWearing(this.profile.look, entry);
+  }
+
+  pick(entry, display) {
     const { profile } = this;
-    const { look } = profile;
-    const move = MOVES[this.shelf];
     sfx.bloop();
     profile.fresh = profile.fresh.filter((id) => id !== entry.id);
+    if (entry.gear) {
+      this.show(entry, display);
+      if (owns(profile, entry)) this.use(entry, MOVES.toys);
+      else {
+        this.trying = entry;
+        this.refresh();
+      }
+      return;
+    }
+    const { look } = profile;
+    const move = MOVES[this.shelf];
     if (!owns(profile, entry)) {
       this.trying = entry;
       this.pet.setLook(dressedIn(look, entry));
@@ -197,11 +325,37 @@ export class Room extends THREE.Group {
     }
   }
 
+  // Shows what a thing for the game does: a balloon pops, a wand shoots sparkles.
+  show(entry, display) {
+    const at = display.getWorldPosition(new THREE.Vector3());
+    if (entry.slot === 'balloon') {
+      sfx.pop();
+      this.effects.pop(at, display.color);
+      display.grow = 0.05;
+      return;
+    }
+    const wand = this.wandModel;
+    const sparkles = entry.slot === 'wand' ? display.sparkles : buildWand(withGear(this.profile.gear, entry)).userData.sparkles;
+    const from = entry.slot === 'wand' ? at.setY(at.y + display.tipHeight) : wand.getWorldPosition(new THREE.Vector3()).setY(1.15);
+    const to = this.pet.headPosition();
+    sfx.zap();
+    this.effects.zap(from, to.clone().sub(from).normalize(), from.distanceTo(to), sparkles);
+    this.effects.twinkle(to, sparkles[0]);
+  }
+
   keep(change, move) {
     Object.assign(this.profile.look, change);
     this.trying = null;
     this.onSave();
     this.pet.setLook(this.profile.look);
+    this.pet.play(move);
+    this.refresh();
+  }
+
+  use(entry, move) {
+    Object.assign(this.profile.gear, withGear(this.profile.gear, entry));
+    this.trying = null;
+    this.onSave();
     this.pet.play(move);
     this.refresh();
   }
@@ -212,7 +366,8 @@ export class Room extends THREE.Group {
     sfx.combo();
     this.effects.hearts(this.pet.headPosition());
     this.effects.firework(new THREE.Vector3(0, 1.7, -2.3));
-    this.keep(dressedIn(this.profile.look, entry), 'love');
+    if (entry.gear) this.use(entry, 'love');
+    else this.keep(dressedIn(this.profile.look, entry), 'love');
   }
 
   stopTrying(sound = true) {
@@ -224,11 +379,11 @@ export class Room extends THREE.Group {
     }
   }
 
-  // What a tag says about a thing: worn, owned, its price, or how far a goal is.
+  // What a tag says about a thing: in use, owned, its price, or how far a goal is.
   tagFor(entry, label) {
     const { profile } = this;
     const owned = owns(profile, entry);
-    if (owned && isWearing(profile.look, entry)) return { tag: '✓', style: 'worn' };
+    if (owned && this.inUse(entry)) return { tag: '✓', style: 'worn' };
     if (owned && profile.fresh.includes(entry.id)) return { tag: sv.newTag, style: 'fresh' };
     if (owned) return { tag: label, style: 'label' };
     if (entry.price != null) return { tag: `${entry.price} 🪙`, style: 'price' };
@@ -237,26 +392,31 @@ export class Room extends THREE.Group {
     return { tag: `🔒 ${progress.have}/${progress.need} ${entry.need.stars != null ? '⭐' : '★★★'}`, style: 'goal' };
   }
 
+  // A plain pot's label: the thing keeps its own colour, or has no ribbon.
+  plainLabel(entry) {
+    if (entry.gear) return entry.value ? null : entry.slot === 'ribbon' ? sv.noRibbon : sv.plain;
+    return entry.color ? null : sv.plain;
+  }
+
   refresh() {
     const { profile } = this;
-    const { look } = profile;
+    const { look, gear } = profile;
     if (this.colorsFor !== look.creature) this.buildColors(look);
-    for (const display of this.displays.clothes) {
-      display.setState({ ...this.tagFor(display.entry, nameOf(display.entry)), trying: this.trying === display.entry });
-    }
-    for (const display of this.displays.colors) {
-      const label = display.entry.color ? null : sv.plain;
-      display.setState({ ...this.tagFor(display.entry, label), trying: this.trying === display.entry });
-    }
+    if (this.toysFor !== decorations(gear)) this.buildToys(gear);
+    const state = (display, label) => display.setState({ ...this.tagFor(display.entry, label), trying: this.trying === display.entry });
+    for (const display of this.displays.clothes) state(display, nameOf(display.entry));
+    for (const display of this.displays.colors) state(display, this.plainLabel(display.entry));
     for (const display of this.displays.creatures) {
       // The player's own animal as it is now; the others in their own fur.
       const own = display.entry.id === look.creature;
       display.body.setLook({ ...(own ? look : asCreature(look, display.entry.id)), wear: {} });
-      display.setState({ ...this.tagFor(display.entry, nameOf(display.entry)), trying: this.trying === display.entry });
+      state(display, nameOf(display.entry));
     }
+    for (const display of this.displays.toys) state(display, display.entry.slot === 'wand' ? nameOf(display.entry) : this.plainLabel(display.entry));
+    for (const display of this.balloons) state(display, nameOf(display.entry));
 
     this.onPurse(profile);
-    const shown = this.trying ? dressedIn(look, this.trying) : look;
+    const shown = this.trying && !this.trying.gear ? dressedIn(look, this.trying) : look;
     const key = JSON.stringify([shown.creature, shown.paint]);
     if (this.portraitKey !== key) {
       this.portraitKey = key;
@@ -267,6 +427,19 @@ export class Room extends THREE.Group {
       material.color.set(0xffffff);
       material.needsUpdate = true;
     }
+
+    // The big wand shows the gear as it would be with what is being tried.
+    const wandGear = this.trying?.gear && this.trying.slot !== 'balloon' ? withGear(gear, this.trying) : gear;
+    const wandKey = JSON.stringify(wandGear);
+    if (this.wandKey !== wandKey) {
+      this.wandKey = wandKey;
+      if (this.wandModel) this.wandShow.remove(this.wandModel);
+      this.wandModel = buildWand(wandGear, { upright: true });
+      this.wandModel.rotation.x = Math.PI / 2;
+      this.wandModel.scale.setScalar(2.3);
+      this.wandShow.add(this.wandModel);
+    }
+    this.wandShow.visible = this.shelf === 'toys';
 
     const entry = this.trying;
     const affordable = entry?.price != null && profile.coins >= entry.price;
@@ -285,8 +458,9 @@ export class Room extends THREE.Group {
     if (!this.visible) return [];
     return [
       ...Object.values(this.wardrobe.tabs),
-      ...this.displays[this.shelf].map((display) => display.hit),
+      ...this.active().map((display) => display.hit),
       this.petHit,
+      this.chestHit,
       ...this.buttons.filter((button) => button.visible),
     ];
   }
@@ -297,22 +471,26 @@ export class Room extends THREE.Group {
 
   setHover(meshes) {
     this.hovered = meshes;
-    for (const display of this.displays[this.shelf]) display.hovered = meshes.has(display.hit);
+    for (const display of this.active()) display.hovered = meshes.has(display.hit);
     for (const button of this.buttons) button.hovered = meshes.has(button);
   }
 
   update(dt, t) {
     if (!this.visible) return;
     this.camera.getWorldPosition(this.cameraPosition);
-    const aimed = this.displays[this.shelf].find((display) => display.hovered);
+    const aimed = this.active().find((display) => display.hovered);
     this.pet.watch(aimed ? aimed.getWorldPosition(this.gaze) : this.cameraPosition);
     this.pet.update(dt, t);
     for (const display of this.displays[this.shelf]) {
       display.update(dt, t);
       display.body?.update(dt, t);
     }
+    this.balloons.forEach((display, i) => {
+      display.update(dt, t);
+      display.position.y = display.home + Math.sin(t * 1.4 + i * 1.3) * 0.025;
+    });
     for (const [id, badge] of Object.entries(this.wardrobe.tabs)) {
-      const target = id === this.shelf ? 1.22 : this.hovered?.has(badge) ? 1.1 : 1;
+      const target = id === this.shelf ? 1.22 : this.hovered.has(badge) ? 1.1 : 1;
       badge.scale.setScalar(badge.scale.x + (target - badge.scale.x) * Math.min(1, dt * 12));
       badge.position.y = badge.userData.base.y + (id === this.shelf ? Math.sin(t * 3) * 0.01 : 0);
     }
@@ -321,7 +499,12 @@ export class Room extends THREE.Group {
       button.scale.setScalar(button.scale.x + (target - button.scale.x) * Math.min(1, dt * 12));
     }
     this.buyButton.position.y = OFFER_Y + Math.sin(t * 3) * 0.012;
+    if (this.wandModel) this.wandModel.rotation.z = t * 0.8;
+    this.chest.userData.lid.rotation.x = -1.9 + (this.shelf === 'toys' ? Math.sin(t * 4) * 0.06 : 0);
     this.mobile.rotation.y = t * 0.3;
     this.effects.update(dt, this.cameraPosition);
   }
 }
+
+// The decorations of a gear, as a key that changes when any of them does.
+const decorations = (gear) => JSON.stringify([gear.stick, gear.glitter, gear.ribbon]);

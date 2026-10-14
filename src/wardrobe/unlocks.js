@@ -1,10 +1,10 @@
-import { CREATURES, ITEMS } from './catalog.js';
+import { CREATURES, ITEMS, GEAR } from './catalog.js';
 import { DECKS } from '../decks/index.js';
 import { levelStars } from '../learner.js';
 import { sv } from '../i18n/sv.js';
 
 // Goals, in the order they are announced.
-const GOALS = [...CREATURES, ...ITEMS].filter((entry) => entry.need);
+const GOALS = [...CREATURES, ...ITEMS, ...GEAR].filter((entry) => entry.need);
 
 const masteredLevels = (profile) =>
   DECKS[profile.track].levels.filter((level) => levelStars(profile, level) === 3).length;

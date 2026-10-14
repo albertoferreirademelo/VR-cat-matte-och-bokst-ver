@@ -16,6 +16,7 @@ new animals and the fanciest things to wear. Keep goals reachable; the first wit
 | `look.js` | The shape of a saved look, defaults, the party outfit, and upgrading old saves |
 | `unlocks.js` | What a player owns, the goal rules (stars, perfect rounds, mastered levels) and their progress |
 | `shop.js` | Coins: what a round pays and buying |
+| `gear.js`, `wands.js` | The player's things in the game: wand and balloon style, and the wand models |
 | `items.js` | 3D models of things to wear |
 | `creatures/creature.js` | What every animal shares: the moves, blinking, looking around, wearing items |
 | `creatures/drawing.js` | 2D face parts: eyes, mouths, blush, worry |
@@ -25,6 +26,20 @@ new animals and the fanciest things to wear. Keep goals reachable; the first wit
 A saved look is `{ creature: 'cat', paint: { fur: 'lila', eyes: 'gron' }, wear: { head: 'crown', face: 'glasses' } }`.
 Parts left out of `paint` (eyes, paws, nose) keep the creature's own colour.
 Names for everything are in `src/i18n/sv.js` (`creatures`, `colors`, `items`).
+
+## Wands and balloons
+
+The player's gear is `{ wand, balloon, stick?, glitter?, ribbon? }`, saved on the profile next to the look.
+The game uses it for the wand in each hand (and the mouse pointer), the colour of the sparkles,
+and the shape of the balloons. In the room the wands and decorations are on the "✨ Spelet"
+shelf, and the balloon styles float over the toy chest.
+
+- A new wand: add it to `GEAR` (slot `wand`) and to `KINDS` and `buildWand` in `wands.js`,
+  plus its pointer in `wandCursor`. Keep a flat tip facing +z, like the star.
+- A new balloon: add a shape to `SHAPES` in `src/game/balloon.js`, an entry to `GEAR`
+  (slot `balloon`), and its look over the chest in `BALLOON_LOOKS` in `src/room/room.js`.
+  The answer must stay easy to read on it.
+- Swedish names go in `sv.gear`.
 
 ## Add a thing to wear
 

@@ -135,13 +135,13 @@ export class Effects extends THREE.Group {
     });
   }
 
-  // Sparkles along a wand shot.
-  zap(origin, direction, distance) {
+  // Sparkles along a wand shot, in the wand's colours.
+  zap(origin, direction, distance, colors = [0xffffff, GOLD, 0xff8fab]) {
     const point = new THREE.Vector3();
     for (let d = 0.35; d < distance; d += 0.16) {
       point.copy(origin).addScaledVector(direction, d);
       this.sparks.spawn(point, new THREE.Vector3(spread(0.2), spread(0.2), spread(0.2)), {
-        color: pick([0xffffff, GOLD, 0xff8fab]),
+        color: pick(colors),
         life: 0.25 + d * 0.06,
         gravity: 0,
         size: 0.6,
