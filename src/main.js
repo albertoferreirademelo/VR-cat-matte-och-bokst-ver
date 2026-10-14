@@ -2,7 +2,7 @@ import '@fontsource-variable/fredoka';
 import * as THREE from 'three';
 import { Game } from './game/game.js';
 import { Backdrop } from './game/backdrop.js';
-import { Menu } from './ui/menu.js';
+import { Menu, counter } from './ui/menu.js';
 import { Room } from './room/room.js';
 import { DECKS } from './decks/index.js';
 import { save } from './profiles.js';
@@ -44,7 +44,7 @@ const game = new Game(scene, camera, { onExit: exit, onSave: save });
 const purse = document.getElementById('purse');
 const room = new Room(camera, {
   onSave: save,
-  onPurse: (profile) => (purse.textContent = `⭐ ${profile.stars}   ${profile.coins} 🪙`),
+  onPurse: (profile) => purse.replaceChildren(counter('⭐', profile.stars, 'star'), counter('🪙', profile.coins, 'coin')),
 });
 scene.add(room);
 const menu = new Menu(document.getElementById('menu'), {
