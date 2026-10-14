@@ -4,6 +4,7 @@ import { Game } from './game/game.js';
 import { Backdrop } from './game/backdrop.js';
 import { starShape, puffy } from './game/shapes.js';
 import { Menu } from './ui/menu.js';
+import { Room } from './room/room.js';
 import { DECKS } from './decks/index.js';
 import { save } from './profiles.js';
 import { unlockAudio, sfx } from './audio.js';
@@ -39,11 +40,18 @@ const backdrop = new Backdrop();
 scene.add(backdrop);
 
 const game = new Game(scene, camera, { onExit: exit, onSave: save });
+const purse = document.getElementById('purse');
+const room = new Room(camera, {
+  onSave: save,
+  onPurse: (profile) => (purse.textContent = `⭐ ${profile.stars}   ${profile.coins} 🪙`),
+});
+scene.add(room);
 const menu = new Menu(document.getElementById('menu'), {
   onStart: start,
+  onRoom: openRoom,
   onPreview: (look, move) => game.showcase(look, move),
 });
-if (import.meta.env.DEV) Object.assign(window, { game, camera, menu });
+if (import.meta.env.DEV) Object.assign(window, { game, room, camera, menu });
 const exitButton = document.getElementById('exit');
 exitButton.textContent = sv.exit;
 exitButton.addEventListener('click', exit);
@@ -77,9 +85,21 @@ function gameCamera() {
   camera.lookAt(0, 1.4, -2);
 }
 
+// In the room the camera stands by the door and sees the whole wardrobe, also on a narrow window.
+// On a tall screen it looks down more, so the extra height shows the floor and not the ceiling.
+function roomCamera() {
+  camera.clearViewOffset();
+  const needed = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(34)) / camera.aspect));
+  camera.fov = Math.max(50, needed);
+  const tall = THREE.MathUtils.clamp(1 - camera.aspect, 0, 0.6);
+  camera.position.set(0, 1.35 + tall * 0.6, 0.55);
+  camera.lookAt(0, 1.08 - tall * 0.5, -2.5);
+}
+
 function fitCamera() {
   camera.aspect = window.innerWidth / window.innerHeight;
   if (view === 'menu') menuCamera();
+  else if (view === 'room') roomCamera();
   else gameCamera();
   camera.updateProjectionMatrix();
 }
@@ -130,6 +150,18 @@ async function start(profile, level, useXR) {
   game.start(DECKS[profile.track], profile, level);
 }
 
+function openRoom(profile) {
+  unlockAudio();
+  view = 'room';
+  fitCamera();
+  menu.hide();
+  game.stop();
+  room.open(profile);
+  exitButton.textContent = `← ${sv.back}`;
+  exitButton.hidden = false;
+  purse.hidden = false;
+}
+
 function exit() {
   const session = renderer.xr.getSession();
   if (session) session.end();
@@ -137,6 +169,9 @@ function exit() {
 }
 
 function backToMenu() {
+  room.close();
+  purse.hidden = true;
+  exitButton.textContent = sv.exit;
   exitButton.hidden = true;
   canvas.classList.remove('playing');
   backdrop.visible = true;
@@ -194,7 +229,7 @@ function aimFromController(controller) {
   raycaster.ray.direction.set(0, 0, -1).applyMatrix4(rotation);
 }
 
-const firstHit = () => raycaster.intersectObjects(game.targets(), false)[0];
+const firstHit = () => raycaster.intersectObjects(view === 'room' ? room.targets() : game.targets(), false)[0];
 const sparkleStart = new THREE.Vector3();
 const sparkleAim = new THREE.Vector3();
 
@@ -230,6 +265,12 @@ canvas.addEventListener('pointerdown', (event) => {
   }
   trackMouse(event);
   raycaster.setFromCamera(mouse, camera);
+  if (view === 'room') {
+    unlockAudio();
+    const hit = firstHit();
+    if (hit) room.hit(hit.object);
+    return;
+  }
   // On a screen the sparkles come from the lower right, as if from a wand in your hand.
   shoot(camera.localToWorld(new THREE.Vector3(0.22, -0.2, -0.5)));
 });
@@ -261,14 +302,17 @@ renderer.setAnimationLoop((time) => {
       data.star.rotation.z = t * 2.5;
       data.star.scale.setScalar(1 + data.flash * 0.8);
     }
-  } else if (mouseInside && view === 'game') {
+  } else if (mouseInside && view !== 'menu') {
     raycaster.setFromCamera(mouse, camera);
     const hit = firstHit();
     if (hit) hovered.add(hit.object);
   }
   game.setHover(hovered);
+  room.setHover(hovered);
+  canvas.classList.toggle('pointing', view === 'room' && hovered.size > 0);
 
   backdrop.update(dt, t);
   game.update(dt, t);
+  room.update(dt, t);
   renderer.render(scene, camera);
 });

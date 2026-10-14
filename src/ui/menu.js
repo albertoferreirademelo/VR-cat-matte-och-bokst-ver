@@ -3,12 +3,9 @@ import { DECKS, UPCOMING_DECKS } from '../decks/index.js';
 import { listProfiles, createProfile, deleteProfile, selectTrack, save } from '../profiles.js';
 import { letterLevel } from '../decks/letters.js';
 import { levelStars } from '../learner.js';
-import { owns, goalText, progressOf } from '../wardrobe/unlocks.js';
-import { buy } from '../wardrobe/shop.js';
-import { CREATURES, ITEMS, COLORS, PARTS, PALETTES, nameOf } from '../wardrobe/catalog.js';
-import { DEFAULT_LOOK, newLook, paletteOf, dressedIn, isWearing, asCreature } from '../wardrobe/look.js';
+import { DEFAULT_LOOK, newLook, paletteOf } from '../wardrobe/look.js';
 import { picture } from '../wardrobe/creatures/index.js';
-import { say, sfx, unlockAudio } from '../audio.js';
+import { say, unlockAudio } from '../audio.js';
 
 function h(tag, props = {}, ...children) {
   const el = document.createElement(tag);
@@ -29,32 +26,24 @@ function avatar(look, expression = 'open') {
   return h('img', { class: 'avatar', src: pictures.get(key), alt: '' });
 }
 
-const hex = (number) => `#${number.toString(16).padStart(6, '0')}`;
-
-// A bar that fills towards a goal.
-function meter(have, need) {
-  return h('div', { class: 'meter' }, h('span', { style: `width: ${Math.min(100, (100 * have) / need)}%` }));
-}
-
 // Three stars per level, filled as the facts in it are learned.
 function rating(stars) {
   return h('span', { class: 'rating' }, '★'.repeat(stars), h('span', { class: 'off' }, '★'.repeat(3 - stars)));
 }
 
 // The 2D pages shown before the game: pick a player, dress the pet, pick a level.
-// `onPreview(look, move)` shows that pet next to the menu.
+// `onPreview(look, move)` shows that pet next to the menu; `onRoom(profile)` opens the pet's room.
 export class Menu {
-  constructor(root, { onStart, onPreview }) {
+  constructor(root, { onStart, onRoom, onPreview }) {
     this.root = root;
     this.onStart = onStart;
+    this.onRoom = onRoom;
     this.onPreview = onPreview;
     this.xrSupported = false;
     this.xrAvailable = false;
     this.screen = 'profiles';
     this.profile = null;
     this.level = null;
-    this.shelf = 'clothes';
-    this.trying = null; // something in the room tried on but not owned
     this.error = null;
     this.go('profiles');
   }
@@ -104,7 +93,7 @@ export class Menu {
   render(preserveScroll = true) {
     const card = this.root.firstElementChild ?? h('div', { class: 'card' });
     const scrollTop = preserveScroll ? card.scrollTop : 0;
-    const small = ['games', 'levels', 'listen', 'room'].includes(this.screen);
+    const small = ['games', 'levels', 'listen'].includes(this.screen);
     const logo = h(
       'div',
       { class: small ? 'logo small' : 'logo' },
@@ -266,163 +255,6 @@ export class Menu {
     ];
   }
 
-  // The pet's room: everything to be, paint and wear, whether it is owned, for sale or a goal.
-  // Tapping a thing tries it on. Owned things stay on; the rest can be bought or aimed for.
-  room() {
-    const { profile } = this;
-    const { look } = profile;
-    const keep = (change, move) => {
-      Object.assign(look, change);
-      this.trying = null;
-      save();
-      this.render();
-      this.onPreview(look, move);
-    };
-    const pick = (entry, move) => {
-      profile.fresh = profile.fresh.filter((id) => id !== entry.id);
-      if (!owns(profile, entry)) {
-        this.trying = entry;
-        this.render();
-        this.onPreview(dressedIn(look, entry), move);
-      } else if (entry.slot && isWearing(look, entry)) {
-        // Tapping something worn takes it off.
-        const { [entry.slot]: _, ...wear } = look.wear;
-        keep({ wear }, move);
-      } else {
-        keep(dressedIn(look, entry), move);
-      }
-    };
-    const state = (entry) => {
-      const owned = owns(profile, entry);
-      return [
-        owned && isWearing(look, entry) ? 'selected' : '',
-        this.trying === entry ? 'trying' : '',
-        owned ? '' : entry.price != null ? 'for-sale' : 'goal',
-        profile.fresh.includes(entry.id) ? 'fresh' : '',
-      ].join(' ');
-    };
-    const card = (entry, icon, move) =>
-      h(
-        'button',
-        { class: `chip ${state(entry)}`, onclick: () => pick(entry, move) },
-        icon,
-        nameOf(entry),
-        !owns(profile, entry) && h('span', { class: 'price' }, entry.price != null ? `${entry.price} 🪙` : '🔒'),
-        profile.fresh.includes(entry.id) && h('span', { class: 'tag' }, sv.newTag),
-      );
-    const swatch = (part, color) => {
-      if (part === 'fur') return hex(paletteOf(look)[color].fur);
-      const value = PALETTES[part][color];
-      return Array.isArray(value) ? `linear-gradient(${value[1]}, ${value[0]})` : hex(value);
-    };
-    // Fur colours are free; the other parts start in the pet's own colour ("Vanlig").
-    const colorRow = (part) => {
-      const entries =
-        part === 'fur'
-          ? Object.keys(paletteOf(look)).map((color) => ({ id: `fur:${color}`, part, color }))
-          : [{ id: `${part}:`, part, color: undefined }, ...COLORS.filter((entry) => entry.part === part)];
-      return h(
-        'div',
-        { class: 'paint' },
-        h('span', { class: 'part' }, sv.parts[part]),
-        h(
-          'div',
-          { class: 'dots' },
-          entries.map((entry) =>
-            h('button', {
-              class: `dot ${entry.color ? '' : 'plain'} ${state(entry)}`,
-              style: entry.color ? `background: ${swatch(part, entry.color)}` : null,
-              title: entry.color ? sv.colors[entry.color] : sv.plain,
-              onclick: () => pick(entry, 'hop'),
-            }),
-          ),
-        ),
-      );
-    };
-    const shelves = {
-      creatures: () =>
-        h('div', { class: 'chips' }, CREATURES.map((creature) => card(creature, avatar(asCreature(look, creature.id)), 'wave'))),
-      colors: () => PARTS.map(colorRow),
-      clothes: () =>
-        h(
-          'div',
-          { class: 'chips' },
-          h(
-            'button',
-            { class: `chip${Object.keys(look.wear).length ? '' : ' selected'}`, onclick: () => keep({ wear: {} }, 'spin') },
-            avatar(look),
-            sv.nothingOn,
-          ),
-          ITEMS.map((item) => card(item, h('span', {}, item.icon), 'spin')),
-        ),
-    };
-    return [
-      h('button', { class: 'btn ghost small back', onclick: () => this.go('levels') }, `← ${sv.back}`),
-      h(
-        'h2',
-        {},
-        sv.room,
-        ' ',
-        h('span', { class: 'pill' }, `⭐ ${profile.stars}`),
-        ' ',
-        h('span', { class: 'pill coins' }, `${profile.coins} 🪙`),
-      ),
-      h(
-        'div',
-        { class: 'chips tabs' },
-        Object.entries(sv.shelves).map(([id, label]) =>
-          h(
-            'button',
-            {
-              class: `chip${this.shelf === id ? ' selected' : ''}`,
-              onclick: () => {
-                this.shelf = id;
-                this.trying = null;
-                this.render();
-                this.onPreview(look);
-              },
-            },
-            label,
-          ),
-        ),
-      ),
-      this.trying ? this.offer(this.trying, keep) : h('p', { class: 'hint' }, sv.roomHint),
-      shelves[this.shelf](),
-    ];
-  }
-
-  // What it takes to keep something being tried on: a buy button, the coins still
-  // missing, or the progress towards a goal.
-  offer(entry, keep) {
-    const { profile } = this;
-    const stop = () => {
-      this.trying = null;
-      this.render();
-      this.onPreview(profile.look);
-    };
-    let deal;
-    if (entry.price != null && profile.coins >= entry.price) {
-      deal = h(
-        'button',
-        {
-          class: 'btn go',
-          onclick: () => {
-            if (!buy(profile, entry)) return;
-            sfx.combo();
-            keep(dressedIn(profile.look, entry), 'love');
-          },
-        },
-        sv.buy(entry.price),
-      );
-    } else if (entry.price != null) {
-      deal = [h('p', {}, sv.saving(profile.coins, entry.price)), meter(profile.coins, entry.price)];
-    } else {
-      const progress = progressOf(profile, entry);
-      deal = [h('p', {}, `🔒 ${goalText(profile, entry)}`), progress && meter(progress.have, progress.need)];
-    }
-    return h('div', { class: 'offer' }, deal, h('button', { class: 'link', onclick: stop }, sv.cancel));
-  }
-
   levels() {
     const { profile } = this;
     const deck = DECKS[profile.track];
@@ -439,10 +271,7 @@ export class Menu {
         'button',
         {
           class: 'btn ghost door',
-          onclick: () => {
-            this.trying = null;
-            this.go('room');
-          },
+          onclick: () => this.onRoom(this.profile),
         },
         `🏠 ${sv.room}`,
         profile.fresh.length > 0 && h('span', { class: 'tag' }, sv.newTag),

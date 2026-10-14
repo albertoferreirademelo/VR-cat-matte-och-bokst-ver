@@ -53,6 +53,7 @@ initial support probe fails. A direct tap attempts ordinary VR in that case.
 | `src/game/` | The 3D scene: balloons, effects, rainbow |
 | `src/ui/` | The menus and the signs |
 | `src/i18n/sv.js` | Every text the players see |
+| `src/room/` | The pet's room: the house, the wardrobe with its open doors, and the things on its shelves |
 | `src/wardrobe/` | The pets (cat, capybara), their colours and things to wear, and how they are unlocked. See its README |
 | `public/audio/` | Voice clips |
 | `tools/` | The script that cuts the alphabet recording into clips |

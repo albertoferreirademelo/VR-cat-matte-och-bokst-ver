@@ -2,7 +2,9 @@
 
 Everything a player can earn and dress their pet in: which animal it is, its colours and what it wears.
 The rest of the game only talks to `Pet` (in `creatures/index.js`) and the functions in `look.js`.
-The room screen ("Mitt rum", in `src/ui/menu.js`) shows it all: owned, for sale, or a goal.
+The pet's room (`src/room/`) shows it all on the open wardrobe doors: owned, for sale, or a goal.
+New entries in the catalog appear there by themselves; a door holds three things to wear,
+two animals, or two blocks of colours.
 
 Small things are bought with coins (`price`): about one coin per right answer, so a colour costs
 about a round. Special things are goals (`need`) that unlock by themselves and cannot be bought:

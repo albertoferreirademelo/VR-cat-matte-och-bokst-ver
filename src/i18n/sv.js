@@ -59,10 +59,8 @@ export const sv = {
   shelves: { creatures: 'Djur', colors: 'Färger', clothes: 'Kläder' },
   parts: { fur: 'Päls', eyes: 'Ögon', paws: 'Tassar', nose: 'Nos' },
   plain: 'Vanlig',
-  roomHint: 'Tryck på något för att prova det.',
   buy: (price) => `Köp för ${price} 🪙`,
-  saving: (have, price) => `Du har ${have} av ${price} 🪙. Spela för att få fler!`,
-  bought: 'Köpt!',
+  notEnough: (have, price) => [`${have} av ${price} 🪙`, 'Spela för att få fler!'],
   coinsEarned: (count) => `+${count} 🪙`,
 
   // What a goal asks for.

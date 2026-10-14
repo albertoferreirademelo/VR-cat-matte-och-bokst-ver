@@ -10,6 +10,9 @@ const KINDS = {
   capybara: { Body: Capybara, picture: capybaraPicture },
 };
 
+// A creature's body on its own, without the Pet around it (for figurines).
+export const makeBody = (id) => new KINDS[id].Body();
+
 // A flat picture of a look's head, as an image URL.
 export function picture(look, expression = 'open') {
   return KINDS[creatureOf(look).id].picture(paintOf(look), EXPRESSIONS[expression]);
