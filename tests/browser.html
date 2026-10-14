@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kattmatte – isolated browser check</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="menu"></div>
+    <button id="exit" hidden></button>
+    <script type="module">
+      // Exercise a migrated profile without reading or changing real players.
+      let stored = JSON.stringify({ profiles: [{
+        id: 'browser-check', name: 'Testspelare', track: 'bokstaver',
+        stars: 20, stats: Object.fromEntries([... 'osalm'].map((key) => [key, { box: 2, seen: 2, right: 2 }])),
+        pace: {}, lastLevel: 'letters-1',
+      }] });
+      Object.defineProperty(window, 'localStorage', { value: {
+        getItem: () => stored,
+        setItem: (_key, value) => { stored = value; },
+      } });
+      await import('/src/main.js');
+      // Simulate the missing-button report: XR API present, auto-probe failed.
+      // Check the menu's VR handoff without claiming a physical XR session.
+      if (new URLSearchParams(location.search).has('xr')) {
+        window.menu.setXRAvailable(true);
+        window.menu.setXRSupported(false);
+        window.menu.onStart = (profile, level, useXR) => {
+          const result = document.querySelector('#start-check') ?? document.createElement('p');
+          result.id = 'start-check';
+          result.style = 'position:fixed;left:16px;top:16px;background:white;padding:12px';
+          result.textContent = `${profile.track}: ${useXR ? 'VR requested' : 'screen requested'} (${level.id})`;
+          document.body.append(result);
+        };
+      }
+    </script>
+  </body>
+</html>

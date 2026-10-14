@@ -8,6 +8,7 @@ import { DECKS } from './decks/index.js';
 import { save } from './profiles.js';
 import { unlockAudio, sfx } from './audio.js';
 import { sv } from './i18n/sv.js';
+import { detectXRMode, requestGameXR } from './xr.js';
 
 // Text is drawn onto canvases, so the font has to be there before anything is built.
 await Promise.race([
@@ -94,14 +95,11 @@ window.addEventListener('resize', () => {
 // Passthrough when the headset offers it, otherwise ordinary VR.
 let xrMode = null;
 async function detectXR() {
-  if (!navigator.xr) return;
-  for (const mode of ['immersive-ar', 'immersive-vr']) {
-    if (await navigator.xr.isSessionSupported(mode).catch(() => false)) {
-      xrMode = mode;
-      menu.setXRSupported(true);
-      return;
-    }
-  }
+  const available = Boolean(window.isSecureContext && navigator.xr);
+  menu.setXRAvailable(available);
+  if (!available) return;
+  xrMode = await detectXRMode(navigator.xr);
+  if (xrMode) menu.setXRSupported(true);
 }
 detectXR();
 
@@ -111,15 +109,16 @@ async function start(profile, level, useXR) {
   fitCamera();
   if (useXR) {
     try {
-      const session = await navigator.xr.requestSession(xrMode, { requiredFeatures: ['local-floor'] });
+      const session = await requestGameXR(navigator.xr, xrMode);
       session.addEventListener('end', backToMenu);
       await renderer.xr.setSession(session);
       backdrop.visible = session.environmentBlendMode === 'opaque';
+      menu.setXRSupported(true);
     } catch (error) {
       console.error(error);
       view = 'menu';
       fitCamera();
-      menu.showError(sv.xrFailed);
+      menu.showError(error.name === 'NotSupportedError' ? sv.xrUnavailable : sv.xrFailed);
       return;
     }
   } else {

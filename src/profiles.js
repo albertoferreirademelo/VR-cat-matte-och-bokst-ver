@@ -1,5 +1,6 @@
 import { DEFAULT_LOOK } from './cats.js';
 import { updateUnlocks } from './rewards.js';
+import { updateLetterUnlocks } from './decks/letters.js';
 
 // Player profiles, kept in the browser's local storage on the device that plays.
 const KEY = 'kattmatte.v1';
@@ -17,6 +18,9 @@ function read() {
     profile.cat ??= { ...DEFAULT_LOOK };
     profile.unlocked ??= [];
     profile.fresh ??= [];
+    profile.lastLevels ??= { [profile.track]: profile.lastLevel };
+    profile.letterModes ??= {};
+    updateLetterUnlocks(profile);
     updateUnlocks(profile);
   }
   return data;
@@ -46,10 +50,21 @@ export function createProfile(name, track, cat) {
     stats: {}, // item key -> { box, seen, right, ms }
     pace: {}, // level id -> seconds a balloon takes to come down
     lastLevel: null,
+    lastLevels: {}, // most recent level in each subject
+    letterModes: {}, // letter group -> both, upper or lower
+    letterUnlocks: [],
   };
   data.profiles.push(profile);
   save();
   return profile;
+}
+
+export function selectTrack(profile, track) {
+  profile.lastLevels ??= { [profile.track]: profile.lastLevel };
+  profile.lastLevels[profile.track] = profile.lastLevel;
+  profile.track = track;
+  profile.lastLevel = profile.lastLevels[track] ?? null;
+  save();
 }
 
 export function deleteProfile(id) {

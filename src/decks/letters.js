@@ -3,14 +3,14 @@
 // The recording has no w, so w is left out for now.
 const FILE_NAMES = { å: 'aa', ä: 'ae', ö: 'oe' };
 
-const letter = (char) => ({
-  key: char,
-  answer: char.toUpperCase() + char, // shown as "Mm": capital and small letter together
+const letter = (char, letterCase = 'both') => ({
+  key: letterCase === 'both' ? char : `${letterCase}:${char}`,
+  answer: letterCase === 'upper' ? char.toUpperCase() : letterCase === 'lower' ? char : char.toUpperCase() + char,
   sound: `sv/letters/${FILE_NAMES[char] ?? char}`,
 });
 
 function group(id, color, chars, badge = chars[0].toUpperCase(), name = [...chars.toUpperCase()].join(' ')) {
-  return { id, color, badge, name, items: [...chars].map(letter) };
+  return { id, color, badge, name, items: [...chars].map((char) => letter(char)) };
 }
 
 // A few letters at a time, in roughly the order Swedish beginner books use:
@@ -25,6 +25,28 @@ const LEVELS = [
   group('vowels', 'blue', 'aeiouyåäö', 'Å', 'Vokaler'),
   group('all', 'orange', 'abcdefghijklmnopqrstuvxyzåäö', 'A–Ö', 'Alla bokstäver'),
 ];
+
+// Each group opens separately once every paired letter is familiar. An earned
+// choice stays open, even if a later answer is wrong.
+export function updateLetterUnlocks(profile) {
+  profile.letterUnlocks ??= [];
+  for (const level of LEVELS) {
+    if (level.items.every((item) => (profile.stats[item.key]?.box ?? 0) >= 2) && !profile.letterUnlocks.includes(level.id)) {
+      profile.letterUnlocks.push(level.id);
+    }
+  }
+}
+
+export function letterLevel(profile, level) {
+  updateLetterUnlocks(profile);
+  const selected = profile.letterModes?.[level.id];
+  const letterCase = profile.letterUnlocks.includes(level.id) && ['upper', 'lower'].includes(selected) ? selected : 'both';
+  return {
+    ...level,
+    letterCase,
+    items: letterCase === 'both' ? level.items : level.items.map((item) => letter(item.key, letterCase)),
+  };
+}
 
 // Wrong answers are other letters from the same level, so she only chooses
 // among letters she is practising.

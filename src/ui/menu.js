@@ -1,6 +1,7 @@
 import { sv } from '../i18n/sv.js';
 import { DECKS, UPCOMING_DECKS } from '../decks/index.js';
-import { listProfiles, createProfile, deleteProfile, save } from '../profiles.js';
+import { listProfiles, createProfile, deleteProfile, selectTrack, save } from '../profiles.js';
+import { letterLevel } from '../decks/letters.js';
 import { levelStars } from '../learner.js';
 import { isUnlocked, lockText } from '../rewards.js';
 import { CAT_COLORS, ACCESSORIES, DEFAULT_LOOK } from '../cats.js';
@@ -41,6 +42,7 @@ export class Menu {
     this.onStart = onStart;
     this.onPreview = onPreview;
     this.xrSupported = false;
+    this.xrAvailable = false;
     this.screen = 'profiles';
     this.profile = null;
     this.level = null;
@@ -50,7 +52,12 @@ export class Menu {
 
   setXRSupported(supported) {
     this.xrSupported = supported;
-    this.render();
+    if (this.screen === 'levels') this.render();
+  }
+
+  setXRAvailable(available) {
+    this.xrAvailable = available;
+    if (this.screen === 'levels') this.render();
   }
 
   show() {
@@ -70,26 +77,71 @@ export class Menu {
   go(screen, move) {
     this.screen = listProfiles().length === 0 && screen === 'profiles' ? 'create' : screen;
     this.error = null;
-    this.render();
+    this.render(false);
     this.onPreview(this.profile && this.screen !== 'profiles' && this.screen !== 'create' ? this.profile.cat : DEFAULT_LOOK, move);
   }
 
-  choose(profile) {
+  choose(profile, screen = 'games') {
     const deck = DECKS[profile.track];
     this.profile = profile;
     this.level = deck.levels.find((level) => level.id === profile.lastLevel) ?? deck.levels[0];
-    this.go('levels', 'wave');
+    this.go(screen, 'wave');
   }
 
-  render() {
-    const small = this.screen === 'levels' || this.screen === 'listen';
+  practiceLevel(level = this.level) {
+    return this.profile.track === 'bokstaver' ? letterLevel(this.profile, level) : level;
+  }
+
+  render(preserveScroll = true) {
+    const card = this.root.firstElementChild ?? h('div', { class: 'card' });
+    const scrollTop = preserveScroll ? card.scrollTop : 0;
+    const small = ['games', 'levels', 'listen'].includes(this.screen);
     const logo = h(
       'div',
       { class: small ? 'logo small' : 'logo' },
       avatar(this.profile && small ? this.profile.cat.color : DEFAULT_LOOK.color, 'happy'),
-      h('h1', {}, [...sv.title].map((letter, i) => h('span', { style: `--i: ${i}` }, letter))),
+      h('h1', {}, h('span', {}, sv.title)),
     );
-    this.root.replaceChildren(h('div', { class: 'card' }, logo, this[this.screen]()));
+    card.replaceChildren(logo, ...[this[this.screen]()].flat(Infinity).filter((child) => child != null && child !== false));
+    if (!card.parentNode) this.root.append(card);
+    card.scrollTop = scrollTop;
+  }
+
+  games() {
+    return [
+      h('h2', {}, sv.hello(this.profile.name)),
+      h('h3', {}, sv.whatGame),
+      ...Object.values(DECKS).map((deck) => h('button', {
+        class: 'btn ghost',
+        onclick: () => {
+          selectTrack(this.profile, deck.id);
+          this.level = deck.levels.find((level) => level.id === this.profile.lastLevel) ?? deck.levels[0];
+          this.go('levels');
+        },
+      }, deck.name)),
+      h('button', { class: 'link', onclick: () => this.go('profiles') }, sv.switchPlayer),
+    ];
+  }
+
+  letterOptions() {
+    const { profile, level } = this;
+    const practice = this.practiceLevel();
+    const unlocked = profile.letterUnlocks.includes(level.id);
+    const known = level.items.filter((item) => (profile.stats[item.key]?.box ?? 0) >= 2).length;
+    return [
+      h('h3', {}, sv.letterForm),
+      h('div', { class: 'chips' }, Object.entries(sv.letterForms).map(([mode, label]) => h('button', {
+        class: `chip${practice.letterCase === mode ? ' selected' : ''}${mode !== 'both' && !unlocked ? ' locked' : ''}`,
+        disabled: mode !== 'both' && !unlocked,
+        'aria-pressed': String(practice.letterCase === mode),
+        onclick: () => {
+          profile.letterModes[level.id] = mode;
+          save();
+          this.render();
+        },
+      }, label))),
+      h('p', { class: 'hint' }, unlocked ? sv.letterFormReady : sv.letterFormLocked(known, level.items.length)),
+    ];
   }
 
   profiles() {
@@ -153,7 +205,7 @@ export class Menu {
     const submit = (event) => {
       event.preventDefault();
       const name = input.value.trim();
-      if (name) this.choose(createProfile(name, track, { color }));
+      if (name) this.choose(createProfile(name, track, { color }), 'levels');
       else input.focus();
     };
     return h(
@@ -221,6 +273,7 @@ export class Menu {
       this.go('profiles');
     };
     return [
+      h('button', { class: 'btn ghost small back', onclick: () => this.go('games') }, sv.switchGame),
       h('h2', {}, sv.hello(profile.name), ' ', h('span', { class: 'pill' }, `⭐ ${profile.stars}`)),
       h('h3', {}, sv.wardrobe),
       h(
@@ -270,24 +323,28 @@ export class Menu {
               class: `level color-${level.color}${level === this.level ? ' selected' : ''}`,
               onclick: () => {
                 this.level = level;
+                profile.lastLevel = level.id;
+                profile.lastLevels[deck.id] = level.id;
+                save();
                 this.render();
               },
             },
             h('span', { class: 'badge' }, level.badge),
-            h('span', {}, level.name, rating(levelStars(profile, level))),
+            h('span', {}, level.name, rating(levelStars(profile, this.practiceLevel(level)))),
           ),
         ),
       ),
+      deck.id === 'bokstaver' && this.letterOptions(),
       this.error && h('p', { class: 'error' }, this.error),
       h('p', { class: 'hint' }, sv.how[deck.id][this.xrSupported ? 'xr' : 'screen']),
       h(
         'div',
         { class: 'starts' },
-        this.xrSupported &&
-          h('button', { class: 'btn go', onclick: () => this.onStart(profile, this.level, true) }, sv.startXR),
+        (this.xrAvailable || this.xrSupported) &&
+          h('button', { class: this.xrSupported ? 'btn go' : 'btn ghost', onclick: () => this.onStart(profile, this.practiceLevel(), true) }, sv.startXR),
         h(
           'button',
-          { class: this.xrSupported ? 'btn ghost' : 'btn go', onclick: () => this.onStart(profile, this.level, false) },
+          { class: this.xrSupported ? 'btn ghost' : 'btn go', onclick: () => this.onStart(profile, this.practiceLevel(), false) },
           sv.startScreen,
         ),
       ),

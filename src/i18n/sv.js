@@ -14,9 +14,15 @@ export const sv = {
   startXR: 'Starta med VR-glasögon',
   startScreen: 'Spela på skärmen',
   switchPlayer: 'Byt spelare',
+  switchGame: '← Tillbaka till Matte / Bokstäver',
+  letterForm: 'Vilka bokstäver vill du se?',
+  letterForms: { both: 'Båda · Aa', upper: 'Stora · A', lower: 'Små · a' },
+  letterFormLocked: (known, total) => `Stora och små var för sig öppnas när du kan alla bokstäver i gruppen. ${known} av ${total} klara.`,
+  letterFormReady: 'Nu kan du öva stora och små var för sig! Varje val har egna övningsstjärnor.',
   deletePlayer: 'Ta bort spelare',
   confirmDelete: (name) => `Vill du ta bort ${name}? Alla stjärnor försvinner.`,
-  xrFailed: 'Det gick inte att starta VR. Försök igen.',
+  xrFailed: 'Det gick inte att starta VR. Tillåt VR i webbläsaren och tryck på Starta med VR-glasögon igen.',
+  xrUnavailable: 'VR kunde inte starta här. Öppna spelet direkt i webbläsaren i dina VR-glasögon och försök igen.',
   how: {
     matte: {
       xr: 'Sikta med trollstaven och tryck på avtryckaren för att smälla rätt ballong.',

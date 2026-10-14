@@ -1,4 +1,5 @@
 // Chooses what to ask next and how fast the balloons come down, per player.
+import { updateLetterUnlocks } from './decks/letters.js';
 const MAX_BOX = 4;
 const FAST_MS = 4000; // answered within this time counts as "knows it", not "counted it"
 const BOX_WEIGHT = [8, 5, 3, 1.5, 0.6]; // weaker facts are asked more often
@@ -47,6 +48,8 @@ export class Session {
     this.current = null;
     this.choiceCount = mastery(profile, level) > 0.5 ? 4 : 3;
     profile.lastLevel = level.id;
+    profile.lastLevels ??= {};
+    profile.lastLevels[deck.id] = level.id;
   }
 
   get pace() {
@@ -95,6 +98,7 @@ export class Session {
       this.retries.push({ item, due: this.index + 3 });
     }
     this.profile.stats[item.key] = stat;
+    if (this.deck.id === 'bokstaver') updateLetterUnlocks(this.profile);
     const pace = this.pace * (correct ? FASTER : SLOWER);
     this.profile.pace[this.level.id] = Math.min(MAX_PACE, Math.max(MIN_PACE, pace));
     this.results.push(correct);
