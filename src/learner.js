@@ -4,12 +4,21 @@ const MAX_BOX = 4;
 const FAST_MS = 4000; // answered within this time counts as "knows it", not "counted it"
 const BOX_WEIGHT = [8, 5, 3, 1.5, 0.6]; // weaker facts are asked more often
 
-const START_PACE = 10; // seconds for a balloon to come down
-const MIN_PACE = 3.5;
 const MAX_PACE = 14;
-// One step faster per right answer, four steps slower per miss: settles near 80 % right.
-const FASTER = 0.96;
-const SLOWER = 1 / FASTER ** 4;
+// How the balloons come down, chosen per player on the grown-ups' page.
+//   start: seconds a balloon takes to come down for a player new to the subject
+//   min: the fastest it gets
+//   step: how much faster each right answer makes it. A miss makes it four steps slower,
+//     so it settles near 80 % right.
+// `calm` has no time limit: the balloons wait, as in Bokstäver.
+export const TEMPOS = {
+  calm: null,
+  gentle: { start: 10, min: 3.5, step: 0.96 },
+  quick: { start: 8, min: 2.6, step: 0.9 }, // about one round of right answers from slow to fast
+};
+export const DEFAULT_TEMPO = 'gentle';
+// A level played for the first time starts a little slower than the player's usual pace.
+const NEW_LEVEL_SLACK = 1.2;
 
 export const ROUND_LENGTH = 10;
 
@@ -46,14 +55,34 @@ export class Session {
     this.retries = [];
     this.recent = [];
     this.current = null;
-    this.choiceCount = mastery(profile, level) > 0.5 ? 4 : 3;
+    this.tempo = TEMPOS[profile.tempo in TEMPOS ? profile.tempo : DEFAULT_TEMPO];
+    // More balloons to choose from as a level is learned.
+    const known = mastery(profile, level);
+    this.choiceCount = known > 0.8 ? 5 : known > 0.5 ? 4 : 3;
     profile.lastLevel = level.id;
     profile.lastLevels ??= {};
     profile.lastLevels[deck.id] = level.id;
   }
 
+  // Whether the balloons fall and must be caught in time.
+  get timed() {
+    return this.deck.timed !== false && this.tempo != null;
+  }
+
   get pace() {
-    return this.profile.pace[this.level.id] ?? START_PACE;
+    const tempo = this.tempo ?? TEMPOS[DEFAULT_TEMPO];
+    const pace = this.profile.pace[this.level.id] ?? this.startPace();
+    return Math.min(MAX_PACE, Math.max(tempo.min, pace));
+  }
+
+  // For a new level: the middle of the player's paces on the other levels of this subject.
+  startPace() {
+    const paces = this.deck.levels
+      .map((level) => this.profile.pace[level.id])
+      .filter((pace) => pace != null)
+      .sort((a, b) => a - b);
+    if (paces.length === 0) return (this.tempo ?? TEMPOS[DEFAULT_TEMPO]).start;
+    return paces[Math.floor(paces.length / 2)] * NEW_LEVEL_SLACK;
   }
 
   get done() {
@@ -99,8 +128,11 @@ export class Session {
     }
     this.profile.stats[item.key] = stat;
     if (this.deck.id === 'bokstaver') updateLetterUnlocks(this.profile);
-    const pace = this.pace * (correct ? FASTER : SLOWER);
-    this.profile.pace[this.level.id] = Math.min(MAX_PACE, Math.max(MIN_PACE, pace));
+    if (this.timed) {
+      const { step, min } = this.tempo;
+      const pace = this.pace * (correct ? step : 1 / step ** 4);
+      this.profile.pace[this.level.id] = Math.min(MAX_PACE, Math.max(min, pace));
+    }
     this.results.push(correct);
     this.index += 1;
   }

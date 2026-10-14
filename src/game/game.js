@@ -29,6 +29,8 @@ const ANSWER_SPOT = new THREE.Vector3(0, 1.85, -1.75);
 const GREEN = '#1b8a4b';
 const CELEBRATIONS = ['hop', 'spin', 'flip', 'clap', 'dance', 'love'];
 const STREAKS = [3, 5, 7, 10];
+// Seconds a balloon takes to come down; going below one of these is cheered as "faster".
+const SPEEDS = [7, 5.5, 4.3, 3.4, 2.8];
 
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
 const angleToPlayer = (position) => Math.atan2(-position.x, -position.z);
@@ -95,6 +97,15 @@ export class Game {
     this.quitButton = this.makeButton(sv.quit, 0.45, () => this.onExit());
     this.buttons = [this.againButton, this.quitButton];
 
+    // In a headset there is no page to click, so this goes home from anywhere in a round.
+    this.homeButton = new Board(0.24, 0.24, BOARD_STYLES.button);
+    this.homeButton.setText('🏠');
+    this.homeButton.position.set(0.92, 0.95, -1.5);
+    facePlayer(this.homeButton);
+    this.homeButton.visible = false;
+    this.homeButton.userData.onHit = () => this.onExit();
+    this.homeButton.userData.size = new Spring(1, 300, 14);
+
     // The star that flies from a popped balloon to the score row.
     this.flyer = new THREE.Mesh(
       puffy(starShape(0.045, 0.021), 0.006, 0.008),
@@ -103,7 +114,7 @@ export class Game {
     this.flyer.visible = false;
 
     this.effects = new Effects();
-    this.stage.add(this.sign, ...this.banners, this.stars, ...this.clouds, this.rainbow, ...this.buttons, this.flyer);
+    this.stage.add(this.sign, ...this.banners, this.stars, ...this.clouds, this.rainbow, ...this.buttons, this.homeButton, this.flyer);
     this.root.add(this.perch, this.stage, this.effects);
   }
 
@@ -140,7 +151,9 @@ export class Game {
     if (move) this.pet.play(move);
   }
 
-  start(deck, profile, level) {
+  // `inXR`: played in a headset, where the home button is the way out.
+  start(deck, profile, level, inXR = false) {
+    this.homeButton.visible = inXR;
     this.deck = deck;
     this.profile = profile;
     this.level = level;
@@ -165,6 +178,7 @@ export class Game {
 
   stop() {
     this.endRound();
+    this.homeButton.visible = false;
     this.state = 'idle';
     this.root.visible = false;
   }
@@ -227,7 +241,10 @@ export class Game {
     const question = this.question;
     const correct = picked?.value === question.answer;
     const index = this.session.index;
+    const before = this.session.pace;
     this.session.answer(correct, this.elapsed * 1000);
+    const after = this.session.pace;
+    const faster = this.session.timed && SPEEDS.some((speed) => before > speed && after <= speed);
     this.onSave();
     this.streak = correct ? this.streak + 1 : 0;
 
@@ -261,7 +278,7 @@ export class Game {
       if (move === 'love') this.effects.hearts(this.pet.headPosition());
       else sfx.boing();
       if (onStreak) sfx.combo();
-      this.announce(this.cheer, onStreak ? sv.streak(this.streak) : pick(sv.praise));
+      this.announce(this.cheer, onStreak ? sv.streak(this.streak) : faster ? sv.faster : pick(sv.praise));
       if (this.streak >= STREAKS[0]) this.rainbow.show();
       this.timer = 1.7;
     } else {
@@ -364,12 +381,13 @@ export class Game {
 
   // The meshes a wand or mouse click can hit right now.
   targets() {
+    const home = this.stage.visible && this.homeButton.visible ? [this.homeButton] : [];
     if (this.state === 'asking') {
       const balloons = this.balloons.filter((b) => b.mode === 'fall' && b.age > 0).map((b) => b.hit);
-      return this.question.sound ? [...balloons, this.sign] : balloons;
+      return [...balloons, ...(this.question.sound ? [this.sign] : []), ...home];
     }
-    if (this.state === 'results') return this.buttons.filter((button) => button.visible);
-    return [];
+    if (this.state === 'results') return [...this.buttons.filter((button) => button.visible), ...home];
+    return home;
   }
 
   hit(mesh) {
@@ -379,6 +397,7 @@ export class Game {
   setHover(meshes) {
     for (const balloon of this.balloons) balloon.hovered = meshes.has(balloon.hit);
     for (const button of this.buttons) button.hovered = meshes.has(button);
+    this.homeButton.hovered = meshes.has(this.homeButton);
     this.sign.hovered = meshes.has(this.sign);
   }
 
@@ -406,7 +425,7 @@ export class Game {
 
     if (this.state === 'asking') {
       this.elapsed += dt;
-      const timed = this.deck.timed !== false;
+      const timed = this.session.timed;
       // With a time limit the balloons sink all the way down; without one they come down and wait.
       const progress = timed ? this.elapsed / this.session.pace : ease.outCubic(Math.min(1, this.elapsed / 1.6));
       const y = TOP_Y + ((timed ? BOTTOM_Y : REST_Y) - TOP_Y) * Math.min(progress, 1);
@@ -440,7 +459,7 @@ export class Game {
       banner.scale.setScalar(Math.max(0.0001, banner.userData.size.update(dt)));
       banner.rotation.z = Math.sin(t * 2.4) * 0.03;
     }
-    for (const button of this.buttons) {
+    for (const button of [...this.buttons, this.homeButton]) {
       const size = button.userData.size;
       size.target = button.hovered ? 1.14 : 1;
       button.scale.setScalar(Math.max(0.0001, size.update(dt)));

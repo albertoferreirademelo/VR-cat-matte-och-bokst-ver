@@ -149,7 +149,7 @@ async function start(profile, level, useXR) {
     canvas.classList.add('playing');
   }
   menu.hide();
-  game.start(DECKS[profile.track], profile, level);
+  game.start(DECKS[profile.track], profile, level, useXR);
 }
 
 function openRoom(profile) {

@@ -90,3 +90,39 @@ test('existing profiles preserve progress and per-subject levels across switches
   assert.equal(reloaded.listProfiles()[0].letterModes['letters-1'], 'lower');
   assert.deepEqual(reloaded.listProfiles()[0].letterUnlocks, ['letters-1']);
 });
+
+test('on the quick tempo balloons speed up within a round and slow down after misses', () => {
+  const player = { ...profile(), tempo: 'quick' };
+  const level = mathDeck.levels[0];
+  const session = new Session(player, mathDeck, level);
+  const start = session.pace;
+  for (let i = 0; i < 10; i++) {
+    session.current = level.items[i % level.items.length];
+    session.answer(true, 2000);
+  }
+  assert.ok(session.pace < start * 0.4, `after ten right answers ${session.pace} s is much faster than ${start} s`);
+  const fast = session.pace;
+  session.current = level.items[0];
+  session.answer(false, 2000);
+  assert.ok(session.pace > fast * 1.4, 'one miss gives clearly more time');
+});
+
+test('a new level starts near the pace the player already has, not from the slowest', () => {
+  const player = profile();
+  player.pace[mathDeck.levels[0].id] = 3;
+  player.pace[mathDeck.levels[1].id] = 4;
+  const session = new Session(player, mathDeck, mathDeck.levels[2]);
+  assert.ok(session.pace >= 3 && session.pace <= 5, `starts at ${session.pace} s`);
+});
+
+test('the calm tempo has no time limit and never changes the pace', () => {
+  const player = { ...profile(), tempo: 'calm' };
+  const level = mathDeck.levels[0];
+  const session = new Session(player, mathDeck, level);
+  assert.equal(session.timed, false);
+  session.current = level.items[0];
+  session.answer(true, 2000);
+  assert.deepEqual(player.pace, {});
+  assert.equal(new Session({ ...profile(), tempo: 'gentle' }, mathDeck, level).timed, true);
+  assert.equal(new Session({ ...profile(), tempo: 'quick' }, lettersDeck, first).timed, false, 'letters never hurry');
+});

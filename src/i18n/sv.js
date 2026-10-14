@@ -23,6 +23,12 @@ export const sv = {
   play: 'Spela!',
   pickLevel: 'Byt nivå',
   parents: 'För vuxna',
+  tempo: 'Tempo',
+  tempos: {
+    calm: ['🐢 Lugnt', 'Ingen tidsgräns'],
+    gentle: ['🐇 Lagom', 'Ballongerna blir sakta snabbare'],
+    quick: ['⚡ Utmaning', 'Ballongerna blir snabbt snabbare'],
+  },
   parentHold: 'Håll inne för vuxensidan',
   playOnScreen: 'Spela på skärmen',
   inVR: 'VR',
@@ -76,6 +82,7 @@ export const sv = {
   praise: ['Bra jobbat!', 'Du är grym!', 'Helt rätt!', 'Snyggt!', 'Superbra!', 'Vilken stjärna!', 'Toppen!', 'Wow!'],
   encourage: ['Nästan!', 'Du klarar det!', 'Bra försök!', 'Vi tar den igen!'],
   streak: (count) => `${count} i rad!`,
+  faster: 'Snabbare! ⚡',
 
   result: (correct, total) => `${correct} av ${total} rätt!`,
   resultPraise: (ratio) => (ratio >= 0.9 ? 'Fantastiskt!' : ratio >= 0.6 ? 'Bra jobbat!' : 'Bra kämpat!'),

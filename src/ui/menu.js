@@ -2,7 +2,7 @@ import { sv } from '../i18n/sv.js';
 import { DECKS, UPCOMING_DECKS } from '../decks/index.js';
 import { listProfiles, createProfile, deleteProfile, selectTrack, save } from '../profiles.js';
 import { letterLevel } from '../decks/letters.js';
-import { levelStars } from '../learner.js';
+import { levelStars, DEFAULT_TEMPO } from '../learner.js';
 import { DEFAULT_LOOK, newLook, paletteOf } from '../wardrobe/look.js';
 import { picture } from '../wardrobe/creatures/index.js';
 import { say, unlockAudio } from '../audio.js';
@@ -341,6 +341,26 @@ export class Menu {
     };
     return [
       h('div', { class: 'bar' }, roundButton('←', sv.back, () => this.go('home')), sticker('h2', sv.parents), h('span', { class: 'round spacer' })),
+      sticker('h3', `${sv.tempo}: ${profile.name}`, 'small'),
+      h(
+        'div',
+        { class: 'tempos' },
+        Object.entries(sv.tempos).map(([id, [label, hint]]) =>
+          h(
+            'button',
+            {
+              class: `tempo${(profile.tempo ?? DEFAULT_TEMPO) === id ? ' selected' : ''}`,
+              onclick: () => {
+                profile.tempo = id;
+                save();
+                this.render();
+              },
+            },
+            h('b', {}, label),
+            h('span', {}, hint),
+          ),
+        ),
+      ),
       h('button', { class: 'btn alt', onclick: () => this.playDeck(DECKS[profile.track], undefined, false) }, `🖥️ ${sv.playOnScreen}`),
       h('button', { class: 'btn ghost', onclick: remove }, `🗑️ ${sv.deletePlayer}`),
     ];

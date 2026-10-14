@@ -6,6 +6,9 @@ import { updateLetterUnlocks } from './decks/letters.js';
 // Player profiles, kept in the browser's local storage on the device that plays.
 const KEY = 'kattmatte.v1';
 
+// A player who starts with letters is little: no time limit. Others get balloons that speed up.
+const tempoFor = (track) => (track === 'bokstaver' ? 'calm' : 'quick');
+
 function read() {
   let data;
   try {
@@ -20,6 +23,7 @@ function read() {
     // Coins came after stars: players start with one coin per star they had.
     profile.coins ??= profile.stars;
     profile.gear ??= newGear();
+    profile.tempo ??= tempoFor(profile.track);
     profile.unlocked ??= [];
     // What the pet already wears is the player's, also things that were goals before the shop.
     for (const id of Object.values(profile.look.wear)) if (!profile.unlocked.includes(id)) profile.unlocked.push(id);
@@ -51,6 +55,7 @@ export function createProfile(name, track, look) {
     track,
     look: newLook(look), // the pet: see src/wardrobe/look.js
     gear: newGear(), // wand and balloons: see src/wardrobe/gear.js
+    tempo: tempoFor(track), // how fast balloons fall: see TEMPOS in src/learner.js
     stars: 0,
     coins: 0, // spent in the room, see src/wardrobe/shop.js
     unlocked: [], // ids of the wardrobe entries bought or earned so far
