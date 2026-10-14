@@ -19,8 +19,11 @@ It runs in the browser: on a phone, tablet or computer, and in VR or passthrough
 
 Each player has a profile with their own pet, stars, coins and progress.
 Every round pays a coin per right answer (and 5 more for all right), to spend in **Mitt rum**. Progress is saved in the browser of the device that plays.
-Choose Matte or Bokstäver after picking a player, or use the back button at the top
-of the practice menu to change subjects. Each subject remembers its last group.
+After picking a player, one tap plays their usual game (the one they played last) at the
+level the game suggests: where they left off, or the next level once that one has three stars.
+The other subject and the room are right beside it; "Byt nivå" opens the level path for choosing
+yourself. In a headset, playing goes straight into VR. Grown-up things (deleting a player,
+playing on the screen instead of in VR) are behind the ⚙️, which opens when held down.
 
 ## Run it yourself
 

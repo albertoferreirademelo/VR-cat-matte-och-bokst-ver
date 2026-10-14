@@ -49,7 +49,8 @@ export function counter(icon, value, kind) {
   return h('span', { class: `counter ${kind}` }, h('span', { class: 'icon' }, icon), h('b', {}, String(value)));
 }
 
-// The 2D pages shown before the game: pick a player, pick a subject, pick a level.
+// The 2D pages shown before the game: pick a player, then play your usual game with one tap,
+// another game, or the room. Choosing a level yourself is a step further away.
 // `onPreview(look, move)` shows that pet next to the menu; `onRoom(profile)` opens the pet's room.
 export class Menu {
   constructor(root, { onStart, onRoom, onPreview }) {
@@ -68,17 +69,17 @@ export class Menu {
 
   setXRSupported(supported) {
     this.xrSupported = supported;
-    if (this.screen === 'levels') this.render();
+    if (['home', 'levels'].includes(this.screen)) this.render();
   }
 
   setXRAvailable(available) {
     this.xrAvailable = available;
-    if (this.screen === 'levels') this.render();
+    if (['home', 'levels'].includes(this.screen)) this.render();
   }
 
   show() {
     this.root.hidden = false;
-    this.go(this.profile ? 'levels' : 'profiles');
+    this.go(this.profile ? 'home' : 'profiles');
   }
 
   hide() {
@@ -97,15 +98,15 @@ export class Menu {
     this.onPreview(this.profile && this.screen !== 'profiles' && this.screen !== 'create' ? this.profile.look : DEFAULT_LOOK, move);
   }
 
-  choose(profile, screen = 'games') {
+  choose(profile, screen = 'home') {
     const deck = DECKS[profile.track];
     this.profile = profile;
     this.level = deck.levels.find((level) => level.id === profile.lastLevel) ?? deck.levels[0];
     this.go(screen, 'wave');
   }
 
-  practiceLevel(level = this.level) {
-    return this.profile.track === 'bokstaver' ? letterLevel(this.profile, level) : level;
+  practiceLevel(level = this.level, deckId = this.profile.track) {
+    return deckId === 'bokstaver' ? letterLevel(this.profile, level) : level;
   }
 
   render(keepScroll = true) {
@@ -202,7 +203,7 @@ export class Menu {
     const submit = (event) => {
       event.preventDefault();
       const name = input.value.trim();
-      if (name) this.choose(createProfile(name, track, look), 'levels');
+      if (name) this.choose(createProfile(name, track, look));
       else input.focus();
     };
     return h(
@@ -224,44 +225,125 @@ export class Menu {
     );
   }
 
-  // Big sticker tiles: the subjects with how many stars there are to get, and the room.
-  games() {
+  // The level to play now in a deck: the last one chosen, or the next one to learn
+  // when that one already has three stars.
+  nextLevel(deck) {
     const { profile } = this;
-    const tiles = Object.values(DECKS).map((deck) => {
-      const [art, color] = DECK_ART[deck.id] ?? [deck.name[0], 'purple'];
-      const earned = deck.levels.reduce((sum, level) => sum + levelStars(profile, level), 0);
+    const last = deck.levels.find((level) => level.id === profile.lastLevels[deck.id]) ?? deck.levels[0];
+    const done = (level) => levelStars(profile, this.practiceLevel(level, deck.id)) === 3;
+    if (!done(last)) return last;
+    return deck.levels.slice(deck.levels.indexOf(last) + 1).find((level) => !done(level)) ?? last;
+  }
+
+  // Plays a deck at once, at the level chosen for it. It becomes the player's usual game.
+  playDeck(deck, level = this.nextLevel(deck), useXR = this.xrSupported) {
+    const { profile } = this;
+    if (profile.track !== deck.id) selectTrack(profile, deck.id);
+    this.level = level;
+    profile.lastLevel = this.level.id;
+    profile.lastLevels[deck.id] = this.level.id;
+    save();
+    this.onStart(profile, this.practiceLevel(), useXR);
+  }
+
+  // A small button for when the headset said no to VR but may still manage it.
+  vrFallback(onclick) {
+    return this.xrAvailable && !this.xrSupported && h('button', { class: 'btn alt', onclick }, `🥽 ${sv.inVR}`);
+  }
+
+  // Home: the player's usual game as one big button, the other games and the room beside it.
+  home() {
+    const { profile } = this;
+    const usual = DECKS[profile.track];
+    const [art, color] = DECK_ART[usual.id] ?? [usual.name[0], 'purple'];
+    const level = this.nextLevel(usual);
+    const others = Object.values(DECKS).filter((deck) => deck !== usual);
+    const hero = h(
+      'button',
+      { class: `hero c-${color}`, onclick: () => this.playDeck(usual) },
+      h('span', { class: 'art' }, art),
+      h('span', { class: 'label' }, usual.name),
+      h('span', { class: 'level' }, level.name, ' ', stars(levelStars(profile, this.practiceLevel(level, usual.id)))),
+      h('span', { class: 'go' }, `▶ ${sv.play}`),
+    );
+    const small = (deck) => {
+      const [deckArt, deckColor] = DECK_ART[deck.id] ?? [deck.name[0], 'purple'];
       return h(
         'button',
-        {
-          class: `tile c-${color}`,
-          onclick: () => {
-            selectTrack(profile, deck.id);
-            this.level = deck.levels.find((level) => level.id === profile.lastLevel) ?? deck.levels[0];
-            this.go('levels');
-          },
-        },
-        h('span', { class: 'art' }, art),
+        { class: `tile c-${deckColor}`, onclick: () => this.playDeck(deck) },
+        h('span', { class: 'art' }, deckArt),
         h('span', { class: 'label' }, deck.name),
-        h('span', { class: 'progress' }, `★ ${earned}/${deck.levels.length * 3}`),
       );
-    });
+    };
     const room = h(
       'button',
       { class: 'tile c-orange', onclick: () => this.onRoom(profile) },
       h('span', { class: 'art emoji' }, '🏠'),
       h('span', { class: 'label' }, sv.room),
-      profile.fresh.length > 0 ? h('span', { class: 'progress new' }, sv.newTag) : h('span', { class: 'progress' }, `${profile.coins} 🪙`),
+      profile.fresh.length > 0 && h('span', { class: 'progress new' }, sv.newTag),
     );
     const upcoming = UPCOMING_DECKS.map((name) =>
+      h('div', { class: 'tile locked' }, h('span', { class: 'art emoji' }, '🔒'), h('span', { class: 'label' }, name)),
+    );
+    return [
+      hero,
+      this.error && h('p', { class: 'error' }, this.error),
+      h('div', { class: 'tiles row' }, others.map(small), room, upcoming),
       h(
         'div',
-        { class: 'tile locked' },
-        h('span', { class: 'art emoji' }, '🔒'),
-        h('span', { class: 'label' }, name),
-        h('span', { class: 'progress' }, sv.comingSoon),
+        { class: 'corner' },
+        h(
+          'button',
+          {
+            class: 'btn ghost small',
+            onclick: () => {
+              this.level = level;
+              this.go('levels');
+            },
+          },
+          `🗺️ ${sv.pickLevel}`,
+        ),
+        this.vrFallback(() => this.playDeck(usual, undefined, true)),
+        this.parentButton(),
       ),
+    ];
+  }
+
+  // A gear that opens the grown-ups' page only when held down, so it is not opened by mistake.
+  parentButton() {
+    let timer = null;
+    const cancel = () => clearTimeout(timer);
+    return h(
+      'button',
+      {
+        class: 'round parent',
+        title: sv.parentHold,
+        'aria-label': sv.parents,
+        onpointerdown: () => {
+          timer = setTimeout(() => this.go('parent'), 1200);
+        },
+        onpointerup: cancel,
+        onpointerleave: cancel,
+        oncontextmenu: (event) => event.preventDefault(),
+      },
+      '⚙️',
     );
-    return [sticker('h2', sv.whatGame), h('div', { class: 'tiles' }, tiles, room, upcoming)];
+  }
+
+  // For grown-ups: things a child should not do by accident.
+  parent() {
+    const { profile } = this;
+    const remove = () => {
+      if (!confirm(sv.confirmDelete(profile.name))) return;
+      deleteProfile(profile.id);
+      this.profile = null;
+      this.go('profiles');
+    };
+    return [
+      h('div', { class: 'bar' }, roundButton('←', sv.back, () => this.go('home')), sticker('h2', sv.parents), h('span', { class: 'round spacer' })),
+      h('button', { class: 'btn alt', onclick: () => this.playDeck(DECKS[profile.track], undefined, false) }, `🖥️ ${sv.playOnScreen}`),
+      h('button', { class: 'btn ghost', onclick: remove }, `🗑️ ${sv.deletePlayer}`),
+    ];
   }
 
   // Uppercase and lowercase on their own open once every letter of the group is known.
@@ -293,7 +375,7 @@ export class Menu {
     );
   }
 
-  // The levels as stops along a winding path, with the pet standing on the chosen one.
+  // Choosing a level yourself: stops along a winding path, with the pet on the chosen one.
   levels() {
     const { profile } = this;
     const deck = DECKS[profile.track];
@@ -333,19 +415,11 @@ export class Menu {
       );
     });
 
-    const play = (useXR) => () => this.onStart(profile, this.practiceLevel(), useXR);
-    const vr = this.xrAvailable || this.xrSupported;
-    const remove = () => {
-      if (!confirm(sv.confirmDelete(profile.name))) return;
-      deleteProfile(profile.id);
-      this.profile = null;
-      this.go('profiles');
-    };
     return [
       h(
         'div',
         { class: 'bar' },
-        roundButton('←', sv.switchGame, () => this.go('games')),
+        roundButton('←', sv.back, () => this.go('home')),
         sticker('h2', deck.name),
         deck.soundboard ? roundButton('🔊', sv.listen, () => this.go('listen'), 'sound') : h('span', { class: 'round spacer' }),
       ),
@@ -355,10 +429,9 @@ export class Menu {
       h(
         'div',
         { class: 'plays' },
-        h('button', { class: 'btn go play', onclick: play(this.xrSupported) }, this.xrSupported ? `🥽 ${sv.play}` : `▶ ${sv.play}`),
-        vr && h('button', { class: 'btn alt', onclick: play(!this.xrSupported) }, this.xrSupported ? sv.onScreen : `🥽 ${sv.inVR}`),
+        h('button', { class: 'btn go play', onclick: () => this.playDeck(deck, this.level) }, `▶ ${sv.play}`),
+        this.vrFallback(() => this.playDeck(deck, this.level, true)),
       ),
-      h('button', { class: 'quiet', onclick: remove }, sv.deletePlayer),
     ];
   }
 

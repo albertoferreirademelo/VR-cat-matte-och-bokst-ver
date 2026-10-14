@@ -570,6 +570,139 @@ button.tile:focus-visible {
   opacity: 0.8;
 }
 
+/* ---- Home: the usual game as one big button, the rest small beside it ---- */
+.stage.home {
+  justify-content: center;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: min(460px, 100%);
+  padding: 18px 16px 20px;
+  border: 6px solid #fff;
+  border-radius: 40px;
+  background: linear-gradient(var(--light), var(--c));
+  color: #fff;
+  box-shadow:
+    0 10px 0 var(--dark),
+    0 22px 34px rgba(60, 9, 108, 0.28);
+  rotate: -1.5deg;
+  transition:
+    rotate 0.15s,
+    scale 0.15s;
+}
+
+.hero:hover,
+.hero:focus-visible {
+  rotate: 0deg;
+  scale: 1.03;
+}
+
+.hero:active {
+  scale: 0.98;
+}
+
+.hero .art {
+  font-size: 92px;
+  font-weight: 700;
+  line-height: 1;
+  -webkit-text-stroke: 11px var(--dark);
+  paint-order: stroke fill;
+}
+
+.hero .label {
+  font-size: 36px;
+  font-weight: 700;
+  -webkit-text-stroke: 7px var(--dark);
+  paint-order: stroke fill;
+}
+
+.hero .level {
+  padding: 2px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--dark);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.hero .level .stars {
+  margin-left: 6px;
+  font-size: 17px;
+}
+
+.corner .btn.alt {
+  padding: 8px 18px;
+  font-size: 18px;
+}
+
+.hero .go {
+  margin-top: 10px;
+  padding: 8px 40px;
+  border: 4px solid #fff;
+  border-radius: 999px;
+  background: linear-gradient(#ff8fd0, var(--pink));
+  font-size: 34px;
+  font-weight: 700;
+  box-shadow: 0 6px 0 var(--pink-dark);
+  animation: breathe 1.8s ease-in-out infinite;
+}
+
+.tiles.row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.tiles.row .tile {
+  min-height: 130px;
+  padding: 12px 6px 10px;
+  border-radius: 26px;
+}
+
+.tiles.row .art {
+  font-size: 46px;
+  -webkit-text-stroke-width: 7px;
+}
+
+.tiles.row .label {
+  font-size: 21px;
+  -webkit-text-stroke-width: 5px;
+}
+
+.corner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn.ghost {
+  background: #fff;
+  color: var(--purple);
+  box-shadow: 0 6px 0 var(--purple-light);
+}
+
+.btn.small {
+  padding: 8px 18px;
+  font-size: 18px;
+}
+
+.round.parent {
+  width: 44px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.6);
+  font-size: 20px;
+  box-shadow: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.stage.parent .btn {
+  width: min(420px, 100%);
+}
+
 /* ---- The levels: stops along a winding path ---- */
 .bar {
   display: flex;
