@@ -1,6 +1,6 @@
 # Kattmatte
 
-A small learning game in Swedish for children, with a cartoon pet, balloons and a wardrobe to earn: hats, colours and new animals.
+A small learning game in Swedish for children, with a cartoon pet, balloons, and a room where coins from playing buy colours and hats, and goals unlock new animals.
 It runs in the browser: on a phone, tablet or computer, and in VR or passthrough on a Meta Quest 3.
 
 **Play:** https://albertoferreirademelo.github.io/VR-cat-matte-och-bokst-ver/
@@ -17,7 +17,8 @@ It runs in the browser: on a phone, tablet or computer, and in VR or passthrough
   Once every letter in a group reaches two learning steps, uppercase and lowercase
   practice open for that group. Each form has its own progress; opened choices stay open.
 
-Each player has a profile with their own pet, stars and progress. Progress is saved in the browser of the device that plays.
+Each player has a profile with their own pet, stars, coins and progress.
+Every round pays a coin per right answer (and 5 more for all right), to spend in **Mitt rum**. Progress is saved in the browser of the device that plays.
 Choose Matte or Bokstäver after picking a player, or use the back button at the top
 of the practice menu to change subjects. Each subject remembers its last group.
 

@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { toon } from '../../game/toon.js';
 import { Creature } from './creature.js';
 import { MID, INK, hex, ellipse, mouth, drawEyes, drawBlush, drawWorry, expressionTextures, pictureURL } from './drawing.js';
 
@@ -9,8 +8,9 @@ const SNOUT = [0.064, 0.072, 0.056];
 const SNOUT_AT = [0, HEAD_Y - 0.024, 0.08];
 const EYES = { x: 168, y: 202, scale: 0.78, dots: true };
 
-// The snout is a darker patch of the fur.
-const snoutColor = (colors) => new THREE.Color(colors.fur).lerp(new THREE.Color(colors.dark), 0.5);
+// The snout is a darker patch of the fur, unless its nose is painted.
+const snoutColor = (colors) =>
+  colors.nose == null ? new THREE.Color(colors.fur).lerp(new THREE.Color(colors.dark), 0.5) : new THREE.Color(colors.nose);
 
 // Button eyes set wide apart and pink cheeks; the snout between them is its own picture.
 function drawFace(g, face, colors) {
@@ -72,8 +72,7 @@ export function capybaraPicture(colors, face) {
 export class Capybara extends Creature {
   constructor() {
     super();
-    const { fur, dark } = this.materials;
-    this.materials.snout = toon(0xffffff);
+    const { fur, dark, paws, nose } = this.materials;
     const model = this.model;
     this.earTilt = 0.55;
     this.earDroop = 0.6;
@@ -82,7 +81,7 @@ export class Capybara extends Creature {
     for (const side of [-1, 1]) {
       const foot = new THREE.Group();
       foot.position.set(side * 0.062, 0, 0.02);
-      this.ball(foot, dark, 0.04, 0, 0.028, 0.02, [1, 0.7, 1.25]);
+      this.ball(foot, paws, 0.04, 0, 0.028, 0.02, [1, 0.7, 1.25]);
       model.add(foot);
     }
     this.ball(model, fur, 0.14, 0, 0.155, 0, [1, 1.04, 0.95]);
@@ -91,7 +90,7 @@ export class Capybara extends Creature {
       const arm = new THREE.Group();
       arm.position.set(side * 0.114, 0.19, 0.03);
       this.limb(arm, fur, 0.03, 0.03, -0.03);
-      this.ball(arm, dark, 0.031, 0, -0.058, 0);
+      this.ball(arm, paws, 0.031, 0, -0.058, 0);
       model.add(arm);
       return arm;
     });
@@ -105,7 +104,7 @@ export class Capybara extends Creature {
     face.position.y = HEAD_Y;
     face.scale.set(...HEAD.map((size) => size * 1.005));
 
-    this.ball(this.head, this.materials.snout, 0.062, ...SNOUT_AT, SNOUT.map((size) => size / 0.062), false);
+    this.ball(this.head, nose, 0.062, ...SNOUT_AT, SNOUT.map((size) => size / 0.062), false);
     const snout = this.decal(this.head, 'snout');
     snout.position.set(...SNOUT_AT);
     snout.scale.set(...SNOUT.map((size) => size * 1.01));
@@ -126,9 +125,8 @@ export class Capybara extends Creature {
     this.anchor('ear', [0.012, HEAD_Y - 0.03, -0.02]);
   }
 
-  setLook(look) {
-    super.setLook(look);
-    this.materials.snout.color.copy(snoutColor(this.colors));
+  ownColors(colors) {
+    return { paws: colors.dark, nose: snoutColor(colors).getHex() };
   }
 
   drawDecals(colors) {

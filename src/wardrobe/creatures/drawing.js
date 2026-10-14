@@ -140,9 +140,13 @@ export const EXPRESSIONS = {
 };
 
 // A small shiny button eye, for creatures drawn in the simple round style.
-function dotEye(g, x, y, look) {
+// Its colour shows at the bottom.
+function dotEye(g, x, y, iris, look) {
   ellipse(g, x + look[0] * 0.4, y + look[1] * 0.4, 30, 36);
-  g.fillStyle = INK;
+  const gradient = g.createLinearGradient(0, y - 36, 0, y + 36);
+  gradient.addColorStop(0.35, INK);
+  gradient.addColorStop(1, iris[0]);
+  g.fillStyle = gradient;
   g.fill();
   g.fillStyle = '#ffffff';
   ellipse(g, x - 9 + look[0] * 0.4, y - 13 + look[1] * 0.4, 11, 11);
@@ -156,7 +160,7 @@ export function drawEyes(g, face, iris, { x, y, scale = 1, dots = false }) {
     g.save();
     g.translate(MID + (i ? x : -x), y);
     g.scale(scale, scale);
-    if (kind === 'open' && dots) dotEye(g, 0, 0, face.look ?? [0, 0]);
+    if (kind === 'open' && dots) dotEye(g, 0, 0, iris, face.look ?? [0, 0]);
     else if (kind === 'open') openEye(g, 0, 0, iris, face.look ?? [0, 0], face.pupil ?? 1);
     else if (kind === 'star') starEye(g, 0, 0);
     else if (kind === 'heart') heartEye(g, 0, 0);

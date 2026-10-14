@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Cat, catPicture } from './cat.js';
 import { Capybara, capybaraPicture } from './capybara.js';
 import { EXPRESSIONS } from './drawing.js';
-import { DEFAULT_LOOK, colorsOf, creatureOf } from '../look.js';
+import { DEFAULT_LOOK, paintOf, creatureOf } from '../look.js';
 
 // Each creature in the catalog: its 3D body and its flat picture for the menus.
 const KINDS = {
@@ -12,7 +12,7 @@ const KINDS = {
 
 // A flat picture of a look's head, as an image URL.
 export function picture(look, expression = 'open') {
-  return KINDS[creatureOf(look).id].picture(colorsOf(look), EXPRESSIONS[expression]);
+  return KINDS[creatureOf(look).id].picture(paintOf(look), EXPRESSIONS[expression]);
 }
 
 // The player's pet in the game: whichever creature the look asks for, dressed in it.

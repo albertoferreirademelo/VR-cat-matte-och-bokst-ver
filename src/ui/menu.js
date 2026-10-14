@@ -3,11 +3,12 @@ import { DECKS, UPCOMING_DECKS } from '../decks/index.js';
 import { listProfiles, createProfile, deleteProfile, selectTrack, save } from '../profiles.js';
 import { letterLevel } from '../decks/letters.js';
 import { levelStars } from '../learner.js';
-import { isUnlocked, lockText } from '../wardrobe/unlocks.js';
-import { CREATURES, ITEMS, nameOf } from '../wardrobe/catalog.js';
-import { DEFAULT_LOOK, newLook, paletteOf, isWorn, asCreature } from '../wardrobe/look.js';
+import { owns, goalText, progressOf } from '../wardrobe/unlocks.js';
+import { buy } from '../wardrobe/shop.js';
+import { CREATURES, ITEMS, COLORS, PARTS, PALETTES, nameOf } from '../wardrobe/catalog.js';
+import { DEFAULT_LOOK, newLook, paletteOf, dressedIn, isWearing, asCreature } from '../wardrobe/look.js';
 import { picture } from '../wardrobe/creatures/index.js';
-import { say, unlockAudio } from '../audio.js';
+import { say, sfx, unlockAudio } from '../audio.js';
 
 function h(tag, props = {}, ...children) {
   const el = document.createElement(tag);
@@ -23,12 +24,17 @@ function h(tag, props = {}, ...children) {
 
 const pictures = new Map();
 function avatar(look, expression = 'open') {
-  const key = `${look.creature}/${look.paint.fur}/${expression}`;
+  const key = `${look.creature}/${JSON.stringify(look.paint)}/${expression}`;
   if (!pictures.has(key)) pictures.set(key, picture(look, expression));
   return h('img', { class: 'avatar', src: pictures.get(key), alt: '' });
 }
 
 const hex = (number) => `#${number.toString(16).padStart(6, '0')}`;
+
+// A bar that fills towards a goal.
+function meter(have, need) {
+  return h('div', { class: 'meter' }, h('span', { style: `width: ${Math.min(100, (100 * have) / need)}%` }));
+}
 
 // Three stars per level, filled as the facts in it are learned.
 function rating(stars) {
@@ -47,6 +53,8 @@ export class Menu {
     this.screen = 'profiles';
     this.profile = null;
     this.level = null;
+    this.shelf = 'clothes';
+    this.trying = null; // something in the room tried on but not owned
     this.error = null;
     this.go('profiles');
   }
@@ -96,7 +104,7 @@ export class Menu {
   render(preserveScroll = true) {
     const card = this.root.firstElementChild ?? h('div', { class: 'card' });
     const scrollTop = preserveScroll ? card.scrollTop : 0;
-    const small = ['games', 'levels', 'listen'].includes(this.screen);
+    const small = ['games', 'levels', 'listen', 'room'].includes(this.screen);
     const logo = h(
       'div',
       { class: small ? 'logo small' : 'logo' },
@@ -258,79 +266,161 @@ export class Menu {
     ];
   }
 
-  // The pet's wardrobe: which creature it is, its colour and what it wears.
-  wardrobe() {
+  // The pet's room: everything to be, paint and wear, whether it is owned, for sale or a goal.
+  // Tapping a thing tries it on. Owned things stay on; the rest can be bought or aimed for.
+  room() {
     const { profile } = this;
     const { look } = profile;
-    const dress = (change, move) => {
+    const keep = (change, move) => {
       Object.assign(look, change);
+      this.trying = null;
       save();
       this.render();
       this.onPreview(look, move);
     };
-    // A button for something to pick, locked until it is earned and marked while new.
-    const choice = (entry, { selected, icon, onpick }) => {
-      const locked = !isUnlocked(profile, entry);
-      const fresh = profile.fresh.includes(entry.id);
-      return h(
-        'button',
-        {
-          class: `chip${selected ? ' selected' : ''}${locked ? ' locked' : ''}${fresh ? ' fresh' : ''}`,
-          disabled: locked,
-          onclick: () => {
-            profile.fresh = profile.fresh.filter((id) => id !== entry.id);
-            onpick();
-          },
-        },
-        icon,
-        locked ? `🔒 ${lockText(profile, entry)}` : nameOf(entry) ?? sv.nothingOn,
-        fresh && h('span', { class: 'tag' }, sv.newTag),
-      );
+    const pick = (entry, move) => {
+      profile.fresh = profile.fresh.filter((id) => id !== entry.id);
+      if (!owns(profile, entry)) {
+        this.trying = entry;
+        this.render();
+        this.onPreview(dressedIn(look, entry), move);
+      } else if (entry.slot && isWearing(look, entry)) {
+        // Tapping something worn takes it off.
+        const { [entry.slot]: _, ...wear } = look.wear;
+        keep({ wear }, move);
+      } else {
+        keep(dressedIn(look, entry), move);
+      }
     };
-    return [
-      h('h3', {}, sv.wardrobe),
-      CREATURES.length > 1 &&
+    const state = (entry) => {
+      const owned = owns(profile, entry);
+      return [
+        owned && isWearing(look, entry) ? 'selected' : '',
+        this.trying === entry ? 'trying' : '',
+        owned ? '' : entry.price != null ? 'for-sale' : 'goal',
+        profile.fresh.includes(entry.id) ? 'fresh' : '',
+      ].join(' ');
+    };
+    const card = (entry, icon, move) =>
+      h(
+        'button',
+        { class: `chip ${state(entry)}`, onclick: () => pick(entry, move) },
+        icon,
+        nameOf(entry),
+        !owns(profile, entry) && h('span', { class: 'price' }, entry.price != null ? `${entry.price} 🪙` : '🔒'),
+        profile.fresh.includes(entry.id) && h('span', { class: 'tag' }, sv.newTag),
+      );
+    const swatch = (part, color) => {
+      if (part === 'fur') return hex(paletteOf(look)[color].fur);
+      const value = PALETTES[part][color];
+      return Array.isArray(value) ? `linear-gradient(${value[1]}, ${value[0]})` : hex(value);
+    };
+    // Fur colours are free; the other parts start in the pet's own colour ("Vanlig").
+    const colorRow = (part) => {
+      const entries =
+        part === 'fur'
+          ? Object.keys(paletteOf(look)).map((color) => ({ id: `fur:${color}`, part, color }))
+          : [{ id: `${part}:`, part, color: undefined }, ...COLORS.filter((entry) => entry.part === part)];
+      return h(
+        'div',
+        { class: 'paint' },
+        h('span', { class: 'part' }, sv.parts[part]),
         h(
           'div',
-          { class: 'chips' },
-          CREATURES.map((creature) =>
-            choice(creature, {
-              selected: look.creature === creature.id,
-              icon: avatar(asCreature(look, creature.id)),
-              onpick: () => look.creature !== creature.id && dress(asCreature(look, creature.id), 'wave'),
+          { class: 'dots' },
+          entries.map((entry) =>
+            h('button', {
+              class: `dot ${entry.color ? '' : 'plain'} ${state(entry)}`,
+              style: entry.color ? `background: ${swatch(part, entry.color)}` : null,
+              title: entry.color ? sv.colors[entry.color] : sv.plain,
+              onclick: () => pick(entry, 'hop'),
             }),
           ),
         ),
-      h(
-        'div',
-        { class: 'dots' },
-        Object.entries(paletteOf(look)).map(([id, colors]) =>
-          h('button', {
-            class: id === look.paint.fur ? 'dot selected' : 'dot',
-            style: `background: ${hex(colors.fur)}`,
-            title: sv.colors[id],
-            onclick: () => dress({ paint: { ...look.paint, fur: id } }, 'hop'),
-          }),
+      );
+    };
+    const shelves = {
+      creatures: () =>
+        h('div', { class: 'chips' }, CREATURES.map((creature) => card(creature, avatar(asCreature(look, creature.id)), 'wave'))),
+      colors: () => PARTS.map(colorRow),
+      clothes: () =>
+        h(
+          'div',
+          { class: 'chips' },
+          h(
+            'button',
+            { class: `chip${Object.keys(look.wear).length ? '' : ' selected'}`, onclick: () => keep({ wear: {} }, 'spin') },
+            avatar(look),
+            sv.nothingOn,
+          ),
+          ITEMS.map((item) => card(item, h('span', {}, item.icon), 'spin')),
         ),
+    };
+    return [
+      h('button', { class: 'btn ghost small back', onclick: () => this.go('levels') }, `← ${sv.back}`),
+      h(
+        'h2',
+        {},
+        sv.room,
+        ' ',
+        h('span', { class: 'pill' }, `⭐ ${profile.stars}`),
+        ' ',
+        h('span', { class: 'pill coins' }, `${profile.coins} 🪙`),
       ),
       h(
         'div',
-        { class: 'chips' },
-        choice({ id: 'none' }, {
-          selected: Object.keys(look.wear).length === 0,
-          icon: avatar(look),
-          onpick: () => dress({ wear: {} }, 'spin'),
-        }),
-        ITEMS.map((item) =>
-          choice(item, {
-            selected: isWorn(look, item),
-            icon: h('span', {}, item.icon),
-            // One thing at a time for now; the slots allow more later.
-            onpick: () => dress({ wear: { [item.slot]: item.id } }, 'spin'),
-          }),
+        { class: 'chips tabs' },
+        Object.entries(sv.shelves).map(([id, label]) =>
+          h(
+            'button',
+            {
+              class: `chip${this.shelf === id ? ' selected' : ''}`,
+              onclick: () => {
+                this.shelf = id;
+                this.trying = null;
+                this.render();
+                this.onPreview(look);
+              },
+            },
+            label,
+          ),
         ),
       ),
+      this.trying ? this.offer(this.trying, keep) : h('p', { class: 'hint' }, sv.roomHint),
+      shelves[this.shelf](),
     ];
+  }
+
+  // What it takes to keep something being tried on: a buy button, the coins still
+  // missing, or the progress towards a goal.
+  offer(entry, keep) {
+    const { profile } = this;
+    const stop = () => {
+      this.trying = null;
+      this.render();
+      this.onPreview(profile.look);
+    };
+    let deal;
+    if (entry.price != null && profile.coins >= entry.price) {
+      deal = h(
+        'button',
+        {
+          class: 'btn go',
+          onclick: () => {
+            if (!buy(profile, entry)) return;
+            sfx.combo();
+            keep(dressedIn(profile.look, entry), 'love');
+          },
+        },
+        sv.buy(entry.price),
+      );
+    } else if (entry.price != null) {
+      deal = [h('p', {}, sv.saving(profile.coins, entry.price)), meter(profile.coins, entry.price)];
+    } else {
+      const progress = progressOf(profile, entry);
+      deal = [h('p', {}, `🔒 ${goalText(profile, entry)}`), progress && meter(progress.have, progress.need)];
+    }
+    return h('div', { class: 'offer' }, deal, h('button', { class: 'link', onclick: stop }, sv.cancel));
   }
 
   levels() {
@@ -344,8 +434,19 @@ export class Menu {
     };
     return [
       h('button', { class: 'btn ghost small back', onclick: () => this.go('games') }, sv.switchGame),
-      h('h2', {}, sv.hello(profile.name), ' ', h('span', { class: 'pill' }, `⭐ ${profile.stars}`)),
-      this.wardrobe(),
+      h('h2', {}, sv.hello(profile.name), ' ', h('span', { class: 'pill' }, `⭐ ${profile.stars}`), ' ', h('span', { class: 'pill coins' }, `${profile.coins} 🪙`)),
+      h(
+        'button',
+        {
+          class: 'btn ghost door',
+          onclick: () => {
+            this.trying = null;
+            this.go('room');
+          },
+        },
+        `🏠 ${sv.room}`,
+        profile.fresh.length > 0 && h('span', { class: 'tag' }, sv.newTag),
+      ),
       h('h3', {}, sv.whatPractice),
       deck.soundboard && h('button', { class: 'btn ghost small', onclick: () => this.go('listen') }, sv.listen),
       h(

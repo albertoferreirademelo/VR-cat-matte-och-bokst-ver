@@ -81,6 +81,7 @@ test('existing profiles preserve progress and per-subject levels across switches
   assert.equal(player.lastLevel, mathDeck.levels[1].id);
   assert.deepEqual(player.stats, before);
   assert.equal(player.stars, 17);
+  assert.equal(player.coins, 17, 'players start with one coin per star they had');
   player.letterModes['letters-1'] = 'lower';
   player.letterUnlocks.push('letters-1');
   profiles.save();

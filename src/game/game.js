@@ -14,6 +14,7 @@ import { sv } from '../i18n/sv.js';
 import { DEFAULT_LOOK, creatureOf, partyLook } from '../wardrobe/look.js';
 import { nameOf } from '../wardrobe/catalog.js';
 import { updateUnlocks } from '../wardrobe/unlocks.js';
+import { payRound } from '../wardrobe/shop.js';
 
 // Everything is placed around a player standing at the origin and looking along -z.
 const TOP_Y = 2.3;
@@ -312,9 +313,11 @@ export class Game {
     const { correct, length } = this.session;
     const ratio = correct / length;
     // Anything earned this round is announced, and the pet tries it on for the party.
-    const earned = updateUnlocks(this.profile, { perfect: correct === length });
+    const perfect = correct === length;
+    const earned = updateUnlocks(this.profile, { perfect });
+    const coins = payRound(this.profile, { correct, perfect });
     this.onSave();
-    const result = sv.result(correct, length);
+    const result = `${sv.result(correct, length)} ${sv.coinsEarned(coins)}`;
     const news = sv.unlocked(earned.map(nameOf));
     this.sign.setText(earned.length ? [result, news] : result);
     this.signSize.value = 1.25;

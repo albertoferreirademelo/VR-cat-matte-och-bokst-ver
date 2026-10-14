@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { toon, addOutline } from '../../game/toon.js';
 import { buildItem, disposeItem } from '../items.js';
-import { colorsOf } from '../look.js';
+import { paintOf } from '../look.js';
 
 const unitBall = new THREE.SphereGeometry(1, 28, 20);
 const FACE_ANGLE = THREE.MathUtils.degToRad(55);
@@ -113,6 +113,7 @@ const HAPPY_FACES = ['happy', 'star', 'heart', 'wink'];
 //   arms, ears, tail: groups the moves swing (ears and tail may be empty)
 //   decals: { name: mesh } pictures wrapped on the head; `drawDecals(colors)` makes
 //     their textures, { name: { expression: texture } }
+//   ownColors(colors): its paw and nose colours, { paws, nose }, for parts left unpainted
 //   anchors: { slot: group } where things are worn (see items.js)
 //   headHeight: head centre above the feet, for looking at things
 export class Creature extends THREE.Group {
@@ -122,6 +123,8 @@ export class Creature extends THREE.Group {
       fur: toon(0xffffff),
       light: toon(0xffffff),
       dark: toon(0xffffff),
+      paws: toon(0xffffff),
+      nose: toon(0xffffff),
       ink: new THREE.MeshBasicMaterial({ side: THREE.BackSide }),
     };
 
@@ -146,6 +149,7 @@ export class Creature extends THREE.Group {
     this.earDroop = 0.85; // and how much further when sad
 
     this.colors = null;
+    this.painted = null;
     this.textures = null;
     this.worn = [];
     this.wearing = null;
@@ -208,12 +212,19 @@ export class Creature extends THREE.Group {
   }
 
   setLook(look) {
-    const colors = colorsOf(look);
-    if (this.colors !== colors) {
+    const painted = JSON.stringify(look.paint);
+    if (this.painted !== painted) {
+      this.painted = painted;
+      const colors = paintOf(look);
+      const own = this.ownColors(colors);
+      colors.paws ??= own.paws;
+      colors.nose ??= own.nose;
       this.colors = colors;
       this.materials.fur.color.set(colors.fur);
       this.materials.light.color.set(colors.light);
       this.materials.dark.color.set(colors.dark);
+      this.materials.paws.color.set(colors.paws);
+      this.materials.nose.color.set(colors.nose);
       this.materials.ink.color.set(colors.dark).multiplyScalar(0.35);
       for (const set of Object.values(this.textures ?? {})) Object.values(set).forEach((texture) => texture.dispose());
       this.textures = this.drawDecals(colors);

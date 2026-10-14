@@ -372,6 +372,119 @@ button.chip:hover:not(:disabled) {
   font-weight: 700;
 }
 
+/* The room: owned, for sale, a goal, or being tried on. */
+.pill.coins {
+  background: #ffe8a3;
+}
+
+.btn.door {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin: 6px 0 4px;
+  font-size: 22px;
+}
+
+.tabs {
+  margin-bottom: 4px;
+}
+
+.tabs .chip {
+  font-size: 18px;
+}
+
+.chip.for-sale,
+.chip.goal {
+  border-style: dashed;
+}
+
+.chip.goal {
+  opacity: 0.75;
+}
+
+.chip.trying,
+.dot.trying {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold);
+  opacity: 1;
+}
+
+.price {
+  font-size: 14px;
+  font-weight: 700;
+  color: #8a5a00;
+}
+
+.paint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+
+.paint .part {
+  flex: 0 0 64px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.paint .dots {
+  justify-content: flex-start;
+  margin: 0;
+}
+
+.dot {
+  position: relative;
+}
+
+.dot.plain {
+  background: repeating-linear-gradient(45deg, #fff 0 5px, var(--purple-light) 5px 8px);
+}
+
+/* A small coin on colours that are still for sale. */
+.dot.for-sale::after {
+  content: '🪙';
+  position: absolute;
+  right: -9px;
+  bottom: -7px;
+  font-size: 13px;
+}
+
+.offer {
+  margin: 8px 0;
+  padding: 10px 14px;
+  border: 3px solid var(--gold);
+  border-radius: 18px;
+  background: #fffaf0;
+  text-align: center;
+}
+
+.offer p {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+
+.offer .btn {
+  width: 100%;
+}
+
+.meter {
+  height: 14px;
+  margin: 4px 0;
+  border-radius: 999px;
+  background: var(--purple-light);
+  overflow: hidden;
+}
+
+.meter span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--gold);
+}
+
 .levels {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));

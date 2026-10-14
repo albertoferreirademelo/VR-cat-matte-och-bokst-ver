@@ -10,7 +10,6 @@ export const sv = {
   cancel: 'Avbryt',
   hello: (name) => `Hej ${name}!`,
   whatPractice: 'Vad vill du öva på?',
-  wardrobe: 'Garderob',
   startXR: 'Starta med VR-glasögon',
   startScreen: 'Spela på skärmen',
   switchPlayer: 'Byt spelare',
@@ -40,7 +39,10 @@ export const sv = {
   exit: 'Avsluta',
   comingSoon: 'kommer snart',
 
-  colors: { brun: 'Brun', lila: 'Lila', rosa: 'Rosa', vit: 'Vit', svart: 'Svart', orange: 'Orange', gra: 'Grå' },
+  colors: {
+    brun: 'Brun', lila: 'Lila', rosa: 'Rosa', vit: 'Vit', svart: 'Svart', orange: 'Orange', gra: 'Grå',
+    turkos: 'Turkos', bla: 'Blå', gron: 'Grön', guld: 'Guld', rod: 'Röd',
+  },
   creatures: { cat: 'Katt', capybara: 'Kapybara' },
   nothingOn: 'Inget',
   items: {
@@ -52,10 +54,22 @@ export const sv = {
     wizard: 'Trollhatt',
   },
 
-  // What a locked wardrobe entry asks for.
+  // The room, where the pet is dressed and things are bought.
+  room: 'Mitt rum',
+  shelves: { creatures: 'Djur', colors: 'Färger', clothes: 'Kläder' },
+  parts: { fur: 'Päls', eyes: 'Ögon', paws: 'Tassar', nose: 'Nos' },
+  plain: 'Vanlig',
+  roomHint: 'Tryck på något för att prova det.',
+  buy: (price) => `Köp för ${price} 🪙`,
+  saving: (have, price) => `Du har ${have} av ${price} 🪙. Spela för att få fler!`,
+  bought: 'Köpt!',
+  coinsEarned: (count) => `+${count} 🪙`,
+
+  // What a goal asks for.
   goals: {
     perfectRound: 'Alla rätt i en runda',
-    levels: (count) => `★★★ på ${count} nivåer`,
+    stars: (have, need) => `${need} ⭐ (${have}/${need})`,
+    levels: (have, need) => `★★★ på ${need} nivåer (${have}/${need})`,
   },
   newTag: 'Ny!',
   unlocked: (names) => `Nytt: ${names.join(' och ')}!`,

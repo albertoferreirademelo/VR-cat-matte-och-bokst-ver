@@ -53,7 +53,7 @@ function drawFace(g, face, colors, { nose = false } = {}) {
 
   if (nose) {
     ellipse(g, MID, 312, 15, 11);
-    g.fillStyle = '#ff7fae';
+    g.fillStyle = colors.nose == null ? '#ff7fae' : hex(colors.nose);
     g.fill();
   }
   mouth(g, face.mouth);
@@ -96,7 +96,7 @@ export function catPicture(colors, face) {
 export class Cat extends Creature {
   constructor() {
     super();
-    const { fur, light, dark, ink } = this.materials;
+    const { fur, light, dark, paws, nose, ink } = this.materials;
     const pink = toon(0xff9ecb);
     const model = this.model;
 
@@ -104,7 +104,7 @@ export class Cat extends Creature {
       const leg = new THREE.Group();
       leg.position.set(side * 0.046, 0, 0);
       this.limb(leg, fur, 0.036, 0.03, 0.052);
-      this.ball(leg, light, 0.042, 0, 0.024, 0.024, [1, 0.6, 1.3]);
+      this.ball(leg, paws, 0.042, 0, 0.024, 0.024, [1, 0.6, 1.3]);
       model.add(leg);
     }
     this.ball(model, fur, 0.1, 0, 0.165, 0, [1, 1.15, 0.92]);
@@ -120,7 +120,7 @@ export class Cat extends Creature {
       const arm = new THREE.Group();
       arm.position.set(side * 0.09, 0.236, 0);
       this.limb(arm, fur, 0.027, 0.065, -0.05);
-      this.ball(arm, light, 0.031, 0, -0.098, 0);
+      this.ball(arm, paws, 0.031, 0, -0.098, 0);
       model.add(arm);
       return arm;
     });
@@ -146,7 +146,7 @@ export class Cat extends Creature {
     const face = this.decal(this.head, 'face');
     face.position.y = HEAD_Y;
     face.scale.set(0.1306 * 1.12, 0.1306, 0.1306);
-    this.ball(this.head, pink, 0.014, 0, HEAD_Y - 0.027, 0.129, [1.2, 0.85, 1], false);
+    this.ball(this.head, nose, 0.014, 0, HEAD_Y - 0.027, 0.129, [1.2, 0.85, 1], false);
 
     const earShape = new THREE.ConeGeometry(0.058, 0.115, 20);
     this.ears = [1, -1].map((side) => {
@@ -183,6 +183,10 @@ export class Cat extends Creature {
 
     // The items were made for this head, so they sit at its centre unchanged.
     for (const slot of ['head', 'face', 'ear']) this.anchor(slot, [0, HEAD_Y, 0]);
+  }
+
+  ownColors(colors) {
+    return { paws: colors.light, nose: 0xff9ecb };
   }
 
   drawDecals(colors) {

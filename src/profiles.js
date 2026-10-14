@@ -16,7 +16,11 @@ function read() {
   // Profiles saved by an older version get the fields that were added since.
   for (const profile of data.profiles) {
     upgradeLook(profile);
+    // Coins came after stars: players start with one coin per star they had.
+    profile.coins ??= profile.stars;
     profile.unlocked ??= [];
+    // What the pet already wears is the player's, also things that were goals before the shop.
+    for (const id of Object.values(profile.look.wear)) if (!profile.unlocked.includes(id)) profile.unlocked.push(id);
     profile.fresh ??= [];
     profile.lastLevels ??= { [profile.track]: profile.lastLevel };
     profile.letterModes ??= {};
@@ -45,7 +49,8 @@ export function createProfile(name, track, look) {
     track,
     look: newLook(look), // the pet: see src/wardrobe/look.js
     stars: 0,
-    unlocked: [], // ids of the wardrobe entries earned so far
+    coins: 0, // spent in the room, see src/wardrobe/shop.js
+    unlocked: [], // ids of the wardrobe entries bought or earned so far
     fresh: [], // earned but not yet tried on, shown as new in the wardrobe
     stats: {}, // item key -> { box, seen, right, ms }
     pace: {}, // level id -> seconds a balloon takes to come down
