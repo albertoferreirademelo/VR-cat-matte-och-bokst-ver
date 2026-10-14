@@ -1,13 +1,10 @@
 import * as THREE from 'three';
-import { toon, addOutline } from './toon.js';
-import { makeFaceTextures } from './faces.js';
-import { buildAccessory, disposeAccessory } from './accessories.js';
-import { CAT_COLORS, DEFAULT_LOOK } from '../cats.js';
+import { toon, addOutline } from '../../game/toon.js';
+import { buildItem, disposeItem } from '../items.js';
+import { colorsOf } from '../look.js';
 
 const unitBall = new THREE.SphereGeometry(1, 28, 20);
 const FACE_ANGLE = THREE.MathUtils.degToRad(55);
-const HEAD_Y = 0.105; // head centre above the neck
-const HEAD_HEIGHT = 0.38; // head centre above the feet
 
 const arc = (p, from, to) => (p <= from || p >= to ? 0 : Math.sin((Math.PI * (p - from)) / (to - from)));
 const ramp = (p, from, to) => THREE.MathUtils.smoothstep(p, from, to);
@@ -110,92 +107,79 @@ const MOVES = {
 
 const HAPPY_FACES = ['happy', 'star', 'heart', 'wink'];
 
-// An upright cartoon kitten. It stands on y = 0 and faces +z.
-export class Kitten extends THREE.Group {
-  constructor(look = DEFAULT_LOOK) {
+// An upright cartoon animal that stands on y = 0 and faces +z. This class moves it;
+// each creature in this folder builds its own body in `this.model` and sets:
+//   head: the group that turns to look around, with the face on it
+//   arms, ears, tail: groups the moves swing (ears and tail may be empty)
+//   decals: { name: mesh } pictures wrapped on the head; `drawDecals(colors)` makes
+//     their textures, { name: { expression: texture } }
+//   anchors: { slot: group } where things are worn (see items.js)
+//   headHeight: head centre above the feet, for looking at things
+export class Creature extends THREE.Group {
+  constructor() {
     super();
     this.materials = {
       fur: toon(0xffffff),
       light: toon(0xffffff),
       dark: toon(0xffffff),
-      pink: toon(0xff9ecb),
-      collar: toon(0xff4f9a),
-      gold: toon(0xffd166),
       ink: new THREE.MeshBasicMaterial({ side: THREE.BackSide }),
-    };
-    const { fur, light, dark, pink, collar, gold, ink } = this.materials;
-
-    const ball = (parent, material, radius, x, y, z, stretch = [1, 1, 1], outline = true) => {
-      const mesh = new THREE.Mesh(unitBall, material);
-      mesh.position.set(x, y, z);
-      mesh.scale.set(radius * stretch[0], radius * stretch[1], radius * stretch[2]);
-      if (outline) addOutline(mesh, ink, radius);
-      parent.add(mesh);
-      return mesh;
-    };
-    const limb = (parent, material, radius, length, y) => {
-      const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(radius, length, 6, 14), material);
-      mesh.position.y = y;
-      addOutline(mesh, ink, radius);
-      parent.add(mesh);
-      return mesh;
     };
 
     // rig: jump and squash, from the feet. core: turn, flip and lean, around the tummy.
     this.rig = new THREE.Group();
     this.core = new THREE.Group();
     this.core.position.y = 0.2;
-    const model = new THREE.Group();
-    model.position.y = -0.2;
+    this.model = new THREE.Group();
+    this.model.position.y = -0.2;
     this.add(this.rig);
     this.rig.add(this.core);
-    this.core.add(model);
+    this.core.add(this.model);
 
-    for (const side of [-1, 1]) {
-      const leg = new THREE.Group();
-      leg.position.set(side * 0.046, 0, 0);
-      limb(leg, fur, 0.036, 0.03, 0.052);
-      ball(leg, light, 0.042, 0, 0.024, 0.024, [1, 0.6, 1.3]);
-      model.add(leg);
-    }
-    ball(model, fur, 0.1, 0, 0.165, 0, [1, 1.15, 0.92]);
-    ball(model, light, 0.07, 0, 0.152, 0.036, [1, 1.15, 0.8], false);
-
-    const band = new THREE.Mesh(new THREE.TorusGeometry(0.064, 0.012, 8, 24), collar);
-    band.position.y = 0.264;
-    band.rotation.x = Math.PI / 2;
-    model.add(band);
-    ball(model, gold, 0.017, 0, 0.246, 0.072);
-
-    this.arms = [1, -1].map((side) => {
-      const arm = new THREE.Group();
-      arm.position.set(side * 0.09, 0.236, 0);
-      limb(arm, fur, 0.027, 0.065, -0.05);
-      ball(arm, light, 0.031, 0, -0.098, 0);
-      model.add(arm);
-      return arm;
-    });
-
-    // The tail is a chain of segments, so a wave can travel along it.
+    this.head = null;
+    this.arms = [];
+    this.ears = [];
     this.tail = [];
-    let parent = model;
-    for (let i = 0; i < 5; i++) {
-      const segment = new THREE.Group();
-      if (i === 0) segment.position.set(0, 0.085, -0.075);
-      else segment.position.y = 0.05;
-      limb(segment, i === 4 ? light : i % 2 ? dark : fur, 0.022 - i * 0.0015, 0.03, 0.025);
-      parent.add(segment);
-      this.tail.push(segment);
-      parent = segment;
-    }
+    this.decals = {};
+    this.anchors = {};
+    this.headHeight = 0.38;
+    this.earTilt = 0.36; // how far the ears lean out
+    this.earDroop = 0.85; // and how much further when sad
 
-    this.head = new THREE.Group();
-    this.head.position.y = 0.275;
-    this.head.rotation.order = 'YXZ';
-    model.add(this.head);
-    ball(this.head, fur, 0.13, 0, HEAD_Y, 0, [1.12, 1, 1]);
+    this.colors = null;
+    this.textures = null;
+    this.worn = [];
+    this.wearing = null;
+    this.move = null;
+    this.dancing = false;
+    this.gaze = null;
+    this.blink = 2;
+    this.twitch = { ear: 0, time: 3 };
+    // Smoothed pose values, so moves blend into each other.
+    this.smooth = { yaw: 0, pitch: 0, roll: 0, lean: 0, droop: 0, armL: [0.3, 0], armR: [0.3, 0] };
+    this.target = new THREE.Vector3();
+  }
 
-    this.face = new THREE.Mesh(
+  ball(parent, material, radius, x, y, z, stretch = [1, 1, 1], outline = true) {
+    const mesh = new THREE.Mesh(unitBall, material);
+    mesh.position.set(x, y, z);
+    mesh.scale.set(radius * stretch[0], radius * stretch[1], radius * stretch[2]);
+    if (outline) addOutline(mesh, this.materials.ink, radius);
+    parent.add(mesh);
+    return mesh;
+  }
+
+  limb(parent, material, radius, length, y) {
+    const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(radius, length, 6, 14), material);
+    mesh.position.y = y;
+    addOutline(mesh, this.materials.ink, radius);
+    parent.add(mesh);
+    return mesh;
+  }
+
+  // A picture wrapped around the front of a ball of radius 1, to be scaled onto a part
+  // a little bigger than that part.
+  decal(parent, name) {
+    const mesh = new THREE.Mesh(
       new THREE.SphereGeometry(
         1,
         24,
@@ -207,100 +191,66 @@ export class Kitten extends THREE.Group {
       ),
       new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }),
     );
-    this.face.position.y = HEAD_Y;
-    this.face.scale.set(0.1306 * 1.12, 0.1306, 0.1306);
-    this.head.add(this.face);
-    ball(this.head, pink, 0.014, 0, HEAD_Y - 0.027, 0.129, [1.2, 0.85, 1], false);
-
-    const earShape = new THREE.ConeGeometry(0.058, 0.115, 20);
-    this.ears = [1, -1].map((side) => {
-      const ear = new THREE.Group();
-      ear.position.set(side * 0.08, HEAD_Y + 0.09, 0);
-      ear.userData.side = side;
-      const outer = new THREE.Mesh(earShape, fur);
-      outer.position.y = 0.045;
-      outer.scale.z = 0.6;
-      addOutline(outer, ink, 0.058);
-      const inner = new THREE.Mesh(earShape, pink);
-      inner.position.set(0, 0.04, 0.014);
-      inner.scale.set(0.6, 0.7, 0.4);
-      ear.add(outer, inner);
-      this.head.add(ear);
-      return ear;
-    });
-
-    // Fluffy cheeks.
-    const tuft = new THREE.ConeGeometry(0.03, 0.07, 10);
-    for (const side of [-1, 1]) {
-      for (const [y, tilt, size] of [
-        [0.085, 0.25, 1],
-        [0.055, 0.6, 0.8],
-      ]) {
-        const fluff = new THREE.Mesh(tuft, fur);
-        fluff.position.set(side * 0.138, y, 0.012);
-        fluff.rotation.z = -side * (Math.PI / 2 + tilt);
-        fluff.scale.set(size, size, size * 0.7);
-        addOutline(fluff, ink, 0.03);
-        this.head.add(fluff);
-      }
-    }
-
-    this.mount = new THREE.Group();
-    this.mount.position.y = HEAD_Y;
-    this.head.add(this.mount);
-
-    this.look = null;
-    this.textures = null;
-    this.worn = null;
-    this.wearing = null;
-    this.move = null;
-    this.party = false;
-    this.partyOutfit = 'party';
-    this.gaze = null;
-    this.blink = 2;
-    this.twitch = { ear: 0, time: 3 };
-    // Smoothed pose values, so moves blend into each other.
-    this.smooth = { yaw: 0, pitch: 0, roll: 0, lean: 0, droop: 0, armL: [0.3, 0], armR: [0.3, 0] };
-    this.target = new THREE.Vector3();
-    this.setLook(look);
+    parent.add(mesh);
+    this.decals[name] = mesh;
+    return mesh;
   }
 
-  setLook({ color, accessory }) {
-    if (this.look?.color !== color) {
-      const colors = CAT_COLORS[color] ?? CAT_COLORS[DEFAULT_LOOK.color];
+  // Where things in `slot` are worn: the reference head of items.js, moved and scaled.
+  anchor(slot, [x, y, z], scale = [1, 1, 1], tilt = [0, 0, 0]) {
+    const group = new THREE.Group();
+    group.position.set(x, y, z);
+    group.scale.set(...scale);
+    group.rotation.set(...tilt);
+    this.head.add(group);
+    this.anchors[slot] = group;
+    return group;
+  }
+
+  setLook(look) {
+    const colors = colorsOf(look);
+    if (this.colors !== colors) {
+      this.colors = colors;
       this.materials.fur.color.set(colors.fur);
       this.materials.light.color.set(colors.light);
       this.materials.dark.color.set(colors.dark);
       this.materials.ink.color.set(colors.dark).multiplyScalar(0.35);
-      if (this.textures) Object.values(this.textures).forEach((texture) => texture.dispose());
-      this.textures = makeFaceTextures(colors);
-      this.face.material.map = this.textures.open;
-      this.face.material.needsUpdate = true;
+      for (const set of Object.values(this.textures ?? {})) Object.values(set).forEach((texture) => texture.dispose());
+      this.textures = this.drawDecals(colors);
+      this.showFace('open');
     }
-    this.look = { color, accessory };
-    this.wear(this.party ? this.partyOutfit : accessory);
+    this.wear(look.wear);
   }
 
-  wear(id) {
-    if (this.wearing === id) return;
-    if (this.worn) {
-      this.mount.remove(this.worn);
-      disposeAccessory(this.worn);
+  wear(outfit) {
+    const key = JSON.stringify(outfit);
+    if (this.wearing === key) return;
+    for (const item of this.worn) {
+      item.parent.remove(item);
+      disposeItem(item);
     }
-    this.worn = buildAccessory(id);
-    this.wearing = id;
-    if (this.worn) this.mount.add(this.worn);
+    this.worn = [];
+    for (const [slot, id] of Object.entries(outfit)) {
+      const item = this.anchors[slot] && buildItem(id);
+      if (!item) continue;
+      this.anchors[slot].add(item);
+      this.worn.push(item);
+    }
+    this.wearing = key;
+  }
+
+  showFace(expression) {
+    for (const [name, mesh] of Object.entries(this.decals)) {
+      const texture = this.textures[name][expression];
+      if (mesh.material.map === texture) continue;
+      // Going from no picture to a picture needs a new shader; swapping pictures does not.
+      if (!mesh.material.map) mesh.material.needsUpdate = true;
+      mesh.material.map = texture;
+    }
   }
 
   play(name) {
     this.move = { name, time: 0 };
-  }
-
-  // A party is a dance that keeps going, in a party hat or another outfit to show off.
-  setParty(on, outfit = 'party') {
-    this.party = on;
-    this.partyOutfit = outfit;
-    this.wear(on ? outfit : this.look.accessory);
   }
 
   // A point in the world to watch, or null to face forward.
@@ -309,7 +259,7 @@ export class Kitten extends THREE.Group {
   }
 
   headPosition(target = new THREE.Vector3()) {
-    return this.face.getWorldPosition(target);
+    return this.decals.face.getWorldPosition(target);
   }
 
   update(dt, t) {
@@ -333,10 +283,10 @@ export class Kitten extends THREE.Group {
     if (this.gaze) {
       const local = this.worldToLocal(this.target.copy(this.gaze));
       gazeYaw = THREE.MathUtils.clamp(Math.atan2(local.x, local.z), -0.75, 0.75);
-      gazePitch = -THREE.MathUtils.clamp(Math.atan2(local.y - HEAD_HEIGHT, Math.hypot(local.x, local.z)), -0.3, 0.6);
+      gazePitch = -THREE.MathUtils.clamp(Math.atan2(local.y - this.headHeight, Math.hypot(local.x, local.z)), -0.3, 0.6);
     }
 
-    if (this.party) MOVES.dance.pose((t % MOVES.dance.length) / MOVES.dance.length, pose);
+    if (this.dancing) MOVES.dance.pose((t % MOVES.dance.length) / MOVES.dance.length, pose);
     if (this.move) {
       const move = MOVES[this.move.name];
       this.move.time += dt;
@@ -368,7 +318,7 @@ export class Kitten extends THREE.Group {
     if (this.twitch.time < 0) this.twitch = { ear: Math.random() < 0.5 ? 0 : 1, time: 2.5 + Math.random() * 4 };
     this.ears.forEach((ear, i) => {
       const flick = this.twitch.ear === i && this.twitch.time < 0.25 ? Math.sin(this.twitch.time * 50) * 0.18 : 0;
-      ear.rotation.z = -ear.userData.side * (0.36 + s.droop * 0.85) + flick;
+      ear.rotation.z = -ear.userData.side * (this.earTilt + s.droop * this.earDroop) + flick;
       ear.rotation.x = s.droop * 0.3;
     });
 
@@ -382,7 +332,6 @@ export class Kitten extends THREE.Group {
     this.blink -= dt;
     if (this.blink < 0) this.blink = 2 + Math.random() * 3;
     const resting = this.blink < 0.13 ? 'blink' : this.gaze ? 'up' : 'open';
-    const texture = this.textures[pose.face ?? resting];
-    if (this.face.material.map !== texture) this.face.material.map = texture;
+    this.showFace(pose.face ?? resting);
   }
 }

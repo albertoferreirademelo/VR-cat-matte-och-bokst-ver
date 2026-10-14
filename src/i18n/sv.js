@@ -10,7 +10,7 @@ export const sv = {
   cancel: 'Avbryt',
   hello: (name) => `Hej ${name}!`,
   whatPractice: 'Vad vill du öva på?',
-  wardrobe: 'Kattens garderob',
+  wardrobe: 'Garderob',
   startXR: 'Starta med VR-glasögon',
   startScreen: 'Spela på skärmen',
   switchPlayer: 'Byt spelare',
@@ -40,9 +40,10 @@ export const sv = {
   exit: 'Avsluta',
   comingSoon: 'kommer snart',
 
-  catColors: { lila: 'Lila', rosa: 'Rosa', vit: 'Vit', svart: 'Svart', orange: 'Orange', gra: 'Grå' },
-  accessories: {
-    none: 'Inget',
+  colors: { brun: 'Brun', lila: 'Lila', rosa: 'Rosa', vit: 'Vit', svart: 'Svart', orange: 'Orange', gra: 'Grå' },
+  creatures: { cat: 'Katt', capybara: 'Kapybara' },
+  nothingOn: 'Inget',
+  items: {
     bow: 'Rosett',
     flowers: 'Blomsterkrans',
     party: 'Partyhatt',
@@ -51,7 +52,7 @@ export const sv = {
     wizard: 'Trollhatt',
   },
 
-  // What a locked wardrobe item asks for.
+  // What a locked wardrobe entry asks for.
   goals: {
     perfectRound: 'Alla rätt i en runda',
     levels: (count) => `★★★ på ${count} nivåer`,

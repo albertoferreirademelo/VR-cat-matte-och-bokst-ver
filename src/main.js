@@ -8,6 +8,7 @@ import { DECKS } from './decks/index.js';
 import { save } from './profiles.js';
 import { unlockAudio, sfx } from './audio.js';
 import { sv } from './i18n/sv.js';
+import { creatureOf } from './wardrobe/look.js';
 import { detectXRMode, requestGameXR } from './xr.js';
 
 // Text is drawn onto canvases, so the font has to be there before anything is built.
@@ -51,7 +52,7 @@ exitButton.addEventListener('click', exit);
 
 let view = 'menu';
 
-// In the menus the camera visits the kitten, shifted so it stands beside the card.
+// In the menus the camera visits the pet, shifted so it stands beside the card.
 function menuCamera() {
   const width = window.innerWidth;
   const height = window.innerHeight;
@@ -221,10 +222,10 @@ canvas.addEventListener('pointerleave', () => (mouseInside = false));
 canvas.addEventListener('pointerdown', (event) => {
   if (renderer.xr.isPresenting) return;
   if (view === 'menu') {
-    // Tapping the kitten in the menu makes it do a trick.
+    // Tapping the pet in the menu makes it do a trick.
     unlockAudio();
-    sfx.meow();
-    game.kitten.play(TRICKS[Math.floor(Math.random() * TRICKS.length)]);
+    sfx[creatureOf(game.pet.look).sound]();
+    game.pet.play(TRICKS[Math.floor(Math.random() * TRICKS.length)]);
     return;
   }
   trackMouse(event);

@@ -113,4 +113,9 @@ export const sfx = {
     tone(650, { dur: 0.16, to: 980, type: 'triangle', gain: 0.18 });
     tone(980, { at: 0.16, dur: 0.3, to: 560, type: 'triangle', gain: 0.18 });
   },
+  // Capybaras chirp: two short, happy whistles.
+  squeak: () => {
+    tone(820, { dur: 0.09, to: 1250, type: 'sine', gain: 0.16 });
+    tone(900, { at: 0.13, dur: 0.12, to: 1450, type: 'sine', gain: 0.16 });
+  },
 };

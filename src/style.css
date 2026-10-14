@@ -337,6 +337,12 @@ h3 {
   font-weight: 500;
 }
 
+.chip .avatar {
+  width: 26px;
+  height: 26px;
+  margin: -3px 0;
+}
+
 button.chip:hover:not(:disabled) {
   border-color: var(--pink);
   transform: translateY(-2px);

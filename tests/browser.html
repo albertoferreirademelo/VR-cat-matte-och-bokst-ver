@@ -15,6 +15,7 @@
         id: 'browser-check', name: 'Testspelare', track: 'bokstaver',
         stars: 20, stats: Object.fromEntries([... 'osalm'].map((key) => [key, { box: 2, seen: 2, right: 2 }])),
         pace: {}, lastLevel: 'letters-1',
+        cat: { color: 'orange', accessory: 'bow' }, // saved before looks had creatures
       }] });
       Object.defineProperty(window, 'localStorage', { value: {
         getItem: () => stored,

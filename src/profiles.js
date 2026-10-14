@@ -1,5 +1,5 @@
-import { DEFAULT_LOOK } from './cats.js';
-import { updateUnlocks } from './rewards.js';
+import { newLook, upgradeLook } from './wardrobe/look.js';
+import { updateUnlocks } from './wardrobe/unlocks.js';
 import { updateLetterUnlocks } from './decks/letters.js';
 
 // Player profiles, kept in the browser's local storage on the device that plays.
@@ -15,7 +15,7 @@ function read() {
   data ??= { profiles: [] };
   // Profiles saved by an older version get the fields that were added since.
   for (const profile of data.profiles) {
-    profile.cat ??= { ...DEFAULT_LOOK };
+    upgradeLook(profile);
     profile.unlocked ??= [];
     profile.fresh ??= [];
     profile.lastLevels ??= { [profile.track]: profile.lastLevel };
@@ -38,14 +38,14 @@ export function save() {
 
 export const listProfiles = () => data.profiles;
 
-export function createProfile(name, track, cat) {
+export function createProfile(name, track, look) {
   const profile = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
     name,
     track,
-    cat: { ...DEFAULT_LOOK, ...cat },
+    look: newLook(look), // the pet: see src/wardrobe/look.js
     stars: 0,
-    unlocked: [], // ids of the wardrobe items earned so far
+    unlocked: [], // ids of the wardrobe entries earned so far
     fresh: [], // earned but not yet tried on, shown as new in the wardrobe
     stats: {}, // item key -> { box, seen, right, ms }
     pace: {}, // level id -> seconds a balloon takes to come down

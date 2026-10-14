@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Balloon, BALLOON_COLORS, BALLOON_SHAPES } from './balloon.js';
-import { Kitten } from './kitten.js';
+import { Pet } from '../wardrobe/creatures/index.js';
 import { Effects } from './effects.js';
 import { Rainbow } from './rainbow.js';
 import { StarRow } from './hud.js';
@@ -11,8 +11,9 @@ import { Board, BOARD_STYLES } from '../ui/board.js';
 import { Session } from '../learner.js';
 import { sfx, say, loadClip } from '../audio.js';
 import { sv } from '../i18n/sv.js';
-import { DEFAULT_LOOK } from '../cats.js';
-import { updateUnlocks } from '../rewards.js';
+import { DEFAULT_LOOK, creatureOf, partyLook } from '../wardrobe/look.js';
+import { nameOf } from '../wardrobe/catalog.js';
+import { updateUnlocks } from '../wardrobe/unlocks.js';
 
 // Everything is placed around a player standing at the origin and looking along -z.
 const TOP_Y = 2.3;
@@ -50,15 +51,15 @@ export class Game {
     this.root.visible = false;
     scene.add(this.root);
 
-    // The kitten on its own little cloud.
+    // The pet on its own little cloud.
     this.perch = new THREE.Group();
     this.perch.position.set(-0.62, 0.5, -1.5);
     facePlayer(this.perch);
     const seat = makeCloud(0.75);
     seat.position.y = -0.13;
-    this.kitten = new Kitten();
-    this.kitten.scale.setScalar(1.15);
-    this.perch.add(seat, this.kitten);
+    this.pet = new Pet();
+    this.pet.scale.setScalar(1.15);
+    this.perch.add(seat, this.pet);
 
     // Everything that belongs to a round, hidden while the menu is open.
     this.stage = new THREE.Group();
@@ -126,7 +127,7 @@ export class Game {
     return button;
   }
 
-  // Shows only the kitten, for the menus.
+  // Shows only the pet, for the menus.
   showcase(look = DEFAULT_LOOK, move) {
     if (this.state !== 'showcase') {
       this.endRound();
@@ -134,8 +135,8 @@ export class Game {
       this.root.visible = true;
       this.stage.visible = false;
     }
-    this.kitten.setLook(look);
-    if (move) this.kitten.play(move);
+    this.pet.setLook(look);
+    if (move) this.pet.play(move);
   }
 
   start(deck, profile, level) {
@@ -144,7 +145,7 @@ export class Game {
     this.level = level;
     this.root.visible = true;
     this.stage.visible = true;
-    this.kitten.setLook(profile.cat);
+    this.pet.setLook(profile.look);
     for (const item of level.items) if (item.sound) loadClip(item.sound);
     this.restart();
   }
@@ -155,8 +156,8 @@ export class Game {
     this.stars.reset(this.session.length);
     this.sign.setText('');
     this.announce(this.cheer, sv.hello(this.profile.name));
-    this.kitten.play('wave');
-    sfx.meow();
+    this.pet.play('wave');
+    sfx[creatureOf(this.profile.look).sound]();
     this.state = 'feedback';
     this.timer = 1.9;
   }
@@ -174,8 +175,8 @@ export class Game {
     this.streak = 0;
     this.rainbow.hide();
     this.flyer.visible = false;
-    this.kitten.setParty(false);
-    this.kitten.watch(null);
+    this.pet.setParty(false);
+    this.pet.watch(null);
     for (const banner of this.banners) banner.userData.size.target = 0;
     for (const button of this.buttons) button.visible = false;
   }
@@ -245,7 +246,7 @@ export class Game {
       }
     }
 
-    this.kitten.watch(null);
+    this.pet.watch(null);
     this.sign.setText(this.deck.tell(question), correct ? GREEN : undefined);
     this.signSize.value = correct ? 1.25 : 0.9;
     // Hearing it once more with the right answer in view ties the two together.
@@ -255,8 +256,8 @@ export class Game {
       sfx.correct();
       const onStreak = STREAKS.includes(this.streak);
       const move = onStreak ? 'flip' : pick(CELEBRATIONS);
-      this.kitten.play(move);
-      if (move === 'love') this.effects.hearts(this.kitten.headPosition());
+      this.pet.play(move);
+      if (move === 'love') this.effects.hearts(this.pet.headPosition());
       else sfx.boing();
       if (onStreak) sfx.combo();
       this.announce(this.cheer, onStreak ? sv.streak(this.streak) : pick(sv.praise));
@@ -266,7 +267,7 @@ export class Game {
       sfx.wrong();
       this.stars.fill(index, false);
       this.rainbow.hide();
-      this.kitten.play('oops');
+      this.pet.play('oops');
       this.announce(this.note, pick(sv.encourage));
       this.timer = 3.2;
     }
@@ -310,11 +311,11 @@ export class Game {
     this.sendBalloonsAway();
     const { correct, length } = this.session;
     const ratio = correct / length;
-    // Anything earned this round is announced, and the kitten tries it on for the party.
+    // Anything earned this round is announced, and the pet tries it on for the party.
     const earned = updateUnlocks(this.profile, { perfect: correct === length });
     this.onSave();
     const result = sv.result(correct, length);
-    const news = sv.unlocked(earned.map((item) => sv.accessories[item.id]));
+    const news = sv.unlocked(earned.map(nameOf));
     this.sign.setText(earned.length ? [result, news] : result);
     this.signSize.value = 1.25;
     this.announce(this.cheer, sv.resultPraise(ratio));
@@ -322,7 +323,7 @@ export class Game {
     if (earned.length) this.tweens.after(0.9, () => sfx.combo());
 
     // The party: hat, dance, rainbow, confetti and fireworks.
-    this.kitten.setParty(true, earned[0]?.id);
+    this.pet.setParty(true, partyLook(this.profile.look, earned));
     this.rainbow.show();
     this.effects.confettiRain(4.5);
     const rockets = 4 + Math.round(ratio * 6);
@@ -378,11 +379,11 @@ export class Game {
     this.sign.hovered = meshes.has(this.sign);
   }
 
-  // The kitten watches the balloon you aim at, or else all of them.
+  // The pet watches the balloon you aim at, or else all of them.
   watchBalloons() {
     const falling = this.balloons.filter((balloon) => balloon.mode === 'fall');
     if (falling.length === 0) {
-      this.kitten.watch(null);
+      this.pet.watch(null);
       return;
     }
     const aimed = falling.find((balloon) => balloon.hovered);
@@ -392,7 +393,7 @@ export class Game {
       this.gaze.set(0, 0, 0);
       for (const balloon of falling) this.gaze.addScaledVector(balloon.position, 1 / falling.length);
     }
-    this.kitten.watch(this.gaze);
+    this.pet.watch(this.gaze);
   }
 
   update(dt, t) {
@@ -444,7 +445,7 @@ export class Game {
     this.clouds.forEach((cloud, i) => (cloud.position.y = TOP_Y + 0.22 + Math.sin(t * 0.8 + i * 1.7) * 0.03));
 
     this.perch.position.y = 0.5 + Math.sin(t * 1.2) * 0.02;
-    this.kitten.update(dt, t);
+    this.pet.update(dt, t);
     this.stars.update(dt, t);
     this.rainbow.update(dt, t);
     this.effects.update(dt, this.cameraPosition);

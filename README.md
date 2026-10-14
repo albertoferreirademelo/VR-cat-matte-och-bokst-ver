@@ -1,6 +1,6 @@
 # Kattmatte
 
-A small learning game in Swedish for children, with a cartoon kitten, balloons and a wardrobe of hats to earn.
+A small learning game in Swedish for children, with a cartoon pet, balloons and a wardrobe to earn: hats, colours and new animals.
 It runs in the browser: on a phone, tablet or computer, and in VR or passthrough on a Meta Quest 3.
 
 **Play:** https://albertoferreirademelo.github.io/VR-cat-matte-och-bokst-ver/
@@ -17,7 +17,7 @@ It runs in the browser: on a phone, tablet or computer, and in VR or passthrough
   Once every letter in a group reaches two learning steps, uppercase and lowercase
   practice open for that group. Each form has its own progress; opened choices stay open.
 
-Each player has a profile with their own kitten, stars and progress. Progress is saved in the browser of the device that plays.
+Each player has a profile with their own pet, stars and progress. Progress is saved in the browser of the device that plays.
 Choose Matte or Bokstäver after picking a player, or use the back button at the top
 of the practice menu to change subjects. Each subject remembers its last group.
 
@@ -35,9 +35,9 @@ and open `https://<your-pc-address>:5173` in the headset's browser (it will warn
 
 `npm run build` puts the finished site in `dist/`. Pushing to `main` publishes it through GitHub Pages.
 
-`npm test` checks profile migration, switching subjects and letter-form progression.
+`npm test` checks profile migration, switching subjects, letter-form progression and wardrobe unlocks.
 With the dev server running, `/tests/browser.html` provides an isolated older-profile
-fixture for checking unlocked letter forms. It uses an in-memory store and does not
+fixture for checking unlocked letter forms and the upgrade of an old saved cat. It uses an in-memory store and does not
 read or change real player profiles.
 Adding `?xr` simulates a browser with WebXR whose initial support probe failed;
 the VR button reports its selected subject and mode without entering immersive VR.
@@ -49,10 +49,10 @@ initial support probe fails. A direct tap attempts ordinary VR in that case.
 | Folder | What is in it |
 |---|---|
 | `src/decks/` | The games: levels, questions and wrong answers |
-| `src/game/` | The 3D scene: kitten, balloons, effects, rainbow |
+| `src/game/` | The 3D scene: balloons, effects, rainbow |
 | `src/ui/` | The menus and the signs |
 | `src/i18n/sv.js` | Every text the players see |
-| `src/cats.js`, `src/rewards.js` | Kitten colours, hats and how they are unlocked |
+| `src/wardrobe/` | The pets (cat, capybara), their colours and things to wear, and how they are unlocked. See its README |
 | `public/audio/` | Voice clips |
 | `tools/` | The script that cuts the alphabet recording into clips |
 

@@ -1,16 +1,15 @@
 import * as THREE from 'three';
 
-// The kitten's face is drawn in 2D, one picture per expression, and wrapped
-// around the front of its head. All coordinates are in a 512 × 512 square.
-const SIZE = 512;
-const MID = SIZE / 2;
-const EYE_X = 92;
-const EYE_Y = 262;
-const INK = '#2b1b3d';
+// Faces are drawn in 2D, one picture per expression, and wrapped around the
+// front of a creature's head. All coordinates are in a 512 × 512 square.
+// These are the parts every creature's face is made of.
+export const SIZE = 512;
+export const MID = SIZE / 2;
+export const INK = '#2b1b3d';
 
-const hex = (number) => `#${number.toString(16).padStart(6, '0')}`;
+export const hex = (number) => `#${number.toString(16).padStart(6, '0')}`;
 
-function ellipse(g, x, y, rx, ry) {
+export function ellipse(g, x, y, rx, ry) {
   g.beginPath();
   g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
 }
@@ -97,8 +96,7 @@ function heartEye(g, x, y) {
   g.fill();
 }
 
-function mouth(g, kind) {
-  const y = 330;
+export function mouth(g, kind, y = 330) {
   g.lineWidth = 8;
   g.strokeStyle = INK;
   if (kind === 'grin') {
@@ -130,7 +128,7 @@ function mouth(g, kind) {
   }
 }
 
-const EXPRESSIONS = {
+export const EXPRESSIONS = {
   open: { eyes: ['open', 'open'], mouth: 'cat' },
   up: { eyes: ['open', 'open'], look: [0, -15], mouth: 'cat' },
   blink: { eyes: ['shut', 'shut'], mouth: 'cat' },
@@ -141,85 +139,70 @@ const EXPRESSIONS = {
   worried: { eyes: ['open', 'open'], look: [0, 9], pupil: 0.8, mouth: 'wavy', worried: true },
 };
 
-export function drawFace(g, name, colors, { nose = false } = {}) {
-  const face = EXPRESSIONS[name];
-  g.lineCap = 'round';
-  g.lineJoin = 'round';
-
-  // Tabby stripes on the forehead.
-  g.strokeStyle = hex(colors.dark);
-  g.lineWidth = 17;
-  for (const [x1, x2] of [
-    [MID, MID],
-    [MID - 50, MID - 38],
-    [MID + 50, MID + 38],
-  ]) {
-    g.beginPath();
-    g.moveTo(x1, 64);
-    g.lineTo(x2, x1 === MID ? 128 : 116);
-    g.stroke();
-  }
-
-  g.fillStyle = `rgba(255, 95, 160, ${face.blush ?? 0.4})`;
-  for (const side of [-1, 1]) {
-    ellipse(g, MID + side * 140, 336, 32, 18);
-    g.fill();
-  }
-
-  g.strokeStyle = 'rgba(43, 27, 61, 0.55)';
-  g.lineWidth = 5;
-  for (const side of [-1, 1]) {
-    for (const [dy1, dy2] of [
-      [-6, -22],
-      [14, 20],
-    ]) {
-      g.beginPath();
-      g.moveTo(MID + side * 182, 322 + dy1);
-      g.lineTo(MID + side * 246, 322 + dy2);
-      g.stroke();
-    }
-  }
-
-  face.eyes.forEach((kind, i) => {
-    const x = MID + (i ? EYE_X : -EYE_X);
-    if (kind === 'open') openEye(g, x, EYE_Y, colors.iris, face.look ?? [0, 0], face.pupil ?? 1);
-    else if (kind === 'star') starEye(g, x, EYE_Y);
-    else if (kind === 'heart') heartEye(g, x, EYE_Y);
-    else arcEye(g, x, EYE_Y, kind === 'arc');
-  });
-
-  if (face.worried) {
-    g.strokeStyle = INK;
-    g.lineWidth = 10;
-    for (const side of [-1, 1]) {
-      g.beginPath();
-      g.moveTo(MID + side * 130, 184);
-      g.lineTo(MID + side * 62, 166);
-      g.stroke();
-    }
-    // A little sweat drop.
-    g.beginPath();
-    g.moveTo(420, 150);
-    g.quadraticCurveTo(446, 196, 420, 204);
-    g.quadraticCurveTo(394, 196, 420, 150);
-    g.fillStyle = '#8fd8ff';
-    g.fill();
-  }
-
-  if (nose) {
-    ellipse(g, MID, 312, 15, 11);
-    g.fillStyle = '#ff7fae';
-    g.fill();
-  }
-  mouth(g, face.mouth);
+// A small shiny button eye, for creatures drawn in the simple round style.
+function dotEye(g, x, y, look) {
+  ellipse(g, x + look[0] * 0.4, y + look[1] * 0.4, 30, 36);
+  g.fillStyle = INK;
+  g.fill();
+  g.fillStyle = '#ffffff';
+  ellipse(g, x - 9 + look[0] * 0.4, y - 13 + look[1] * 0.4, 11, 11);
+  g.fill();
 }
 
-export function makeFaceTextures(colors) {
+// Both eyes for an expression, `x` from the middle and `scale` times the cat's size.
+// `dots` draws open eyes as button eyes instead of the cat's big ones.
+export function drawEyes(g, face, iris, { x, y, scale = 1, dots = false }) {
+  face.eyes.forEach((kind, i) => {
+    g.save();
+    g.translate(MID + (i ? x : -x), y);
+    g.scale(scale, scale);
+    if (kind === 'open' && dots) dotEye(g, 0, 0, face.look ?? [0, 0]);
+    else if (kind === 'open') openEye(g, 0, 0, iris, face.look ?? [0, 0], face.pupil ?? 1);
+    else if (kind === 'star') starEye(g, 0, 0);
+    else if (kind === 'heart') heartEye(g, 0, 0);
+    else arcEye(g, 0, 0, kind === 'arc');
+    g.restore();
+  });
+}
+
+// Pink cheeks, rosier when happy.
+export function drawBlush(g, face, { x, y, scale = 1 }) {
+  g.fillStyle = `rgba(255, 95, 160, ${face.blush ?? 0.4})`;
+  for (const side of [-1, 1]) {
+    ellipse(g, MID + side * x, y, 32 * scale, 18 * scale);
+    g.fill();
+  }
+}
+
+// Worried eyebrows over eyes placed as in drawEyes, and a little sweat drop.
+export function drawWorry(g, { x, y, scale = 1 }) {
+  g.strokeStyle = INK;
+  g.lineWidth = 10 * scale;
+  for (const side of [-1, 1]) {
+    g.beginPath();
+    g.moveTo(MID + side * (x + 38 * scale), y - 78 * scale);
+    g.lineTo(MID + side * (x - 30 * scale), y - 96 * scale);
+    g.stroke();
+  }
+  g.beginPath();
+  g.moveTo(420, 150);
+  g.quadraticCurveTo(446, 196, 420, 204);
+  g.quadraticCurveTo(394, 196, 420, 150);
+  g.fillStyle = '#8fd8ff';
+  g.fill();
+}
+
+// One texture per expression, drawn by `draw(g, expression)`.
+export function expressionTextures(draw, size = SIZE) {
   const textures = {};
-  for (const name of Object.keys(EXPRESSIONS)) {
+  for (const [name, face] of Object.entries(EXPRESSIONS)) {
     const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = SIZE;
-    drawFace(canvas.getContext('2d'), name, colors);
+    canvas.width = canvas.height = size;
+    const g = canvas.getContext('2d');
+    g.scale(size / SIZE, size / SIZE);
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    draw(g, face);
     textures[name] = new THREE.CanvasTexture(canvas);
     textures[name].colorSpace = THREE.SRGBColorSpace;
     textures[name].anisotropy = 4;
@@ -227,39 +210,14 @@ export function makeFaceTextures(colors) {
   return textures;
 }
 
-// A flat picture of the kitten's head for the menus.
-export function avatarURL(colors, expression = 'open', size = 160) {
+// A flat picture for the menus, drawn by `draw(g, expression)` in the same 512 square.
+export function pictureURL(draw, size = 160) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
   const g = canvas.getContext('2d');
   g.scale(size / SIZE, size / SIZE);
+  g.lineCap = 'round';
   g.lineJoin = 'round';
-  g.lineWidth = 14;
-  g.strokeStyle = hex(colors.dark);
-  for (const side of [-1, 1]) {
-    g.beginPath();
-    g.moveTo(MID + side * 190, 230);
-    g.lineTo(MID + side * 168, 36);
-    g.lineTo(MID + side * 40, 130);
-    g.closePath();
-    g.fillStyle = hex(colors.fur);
-    g.fill();
-    g.stroke();
-    g.beginPath();
-    g.moveTo(MID + side * 164, 180);
-    g.lineTo(MID + side * 152, 84);
-    g.lineTo(MID + side * 88, 134);
-    g.closePath();
-    g.fillStyle = '#ff9ecb';
-    g.fill();
-  }
-  ellipse(g, MID, 296, 216, 186);
-  g.fillStyle = hex(colors.fur);
-  g.fill();
-  g.stroke();
-  g.translate(MID, 300);
-  g.scale(0.76, 0.76);
-  g.translate(-MID, -276);
-  drawFace(g, expression, colors, { nose: true });
+  draw(g);
   return canvas.toDataURL();
 }

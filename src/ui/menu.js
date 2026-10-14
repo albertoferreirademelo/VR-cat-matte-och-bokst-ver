@@ -3,9 +3,10 @@ import { DECKS, UPCOMING_DECKS } from '../decks/index.js';
 import { listProfiles, createProfile, deleteProfile, selectTrack, save } from '../profiles.js';
 import { letterLevel } from '../decks/letters.js';
 import { levelStars } from '../learner.js';
-import { isUnlocked, lockText } from '../rewards.js';
-import { CAT_COLORS, ACCESSORIES, DEFAULT_LOOK } from '../cats.js';
-import { avatarURL } from '../game/faces.js';
+import { isUnlocked, lockText } from '../wardrobe/unlocks.js';
+import { CREATURES, ITEMS, nameOf } from '../wardrobe/catalog.js';
+import { DEFAULT_LOOK, newLook, paletteOf, isWorn, asCreature } from '../wardrobe/look.js';
+import { picture } from '../wardrobe/creatures/index.js';
 import { say, unlockAudio } from '../audio.js';
 
 function h(tag, props = {}, ...children) {
@@ -21,9 +22,9 @@ function h(tag, props = {}, ...children) {
 }
 
 const pictures = new Map();
-function avatar(color, expression = 'open') {
-  const key = `${color}/${expression}`;
-  if (!pictures.has(key)) pictures.set(key, avatarURL(CAT_COLORS[color] ?? CAT_COLORS[DEFAULT_LOOK.color], expression));
+function avatar(look, expression = 'open') {
+  const key = `${look.creature}/${look.paint.fur}/${expression}`;
+  if (!pictures.has(key)) pictures.set(key, picture(look, expression));
   return h('img', { class: 'avatar', src: pictures.get(key), alt: '' });
 }
 
@@ -34,8 +35,8 @@ function rating(stars) {
   return h('span', { class: 'rating' }, '★'.repeat(stars), h('span', { class: 'off' }, '★'.repeat(3 - stars)));
 }
 
-// The 2D pages shown before the game: pick a player, dress the kitten, pick a level.
-// `onPreview(look, move)` shows that kitten next to the menu.
+// The 2D pages shown before the game: pick a player, dress the pet, pick a level.
+// `onPreview(look, move)` shows that pet next to the menu.
 export class Menu {
   constructor(root, { onStart, onPreview }) {
     this.root = root;
@@ -78,7 +79,7 @@ export class Menu {
     this.screen = listProfiles().length === 0 && screen === 'profiles' ? 'create' : screen;
     this.error = null;
     this.render(false);
-    this.onPreview(this.profile && this.screen !== 'profiles' && this.screen !== 'create' ? this.profile.cat : DEFAULT_LOOK, move);
+    this.onPreview(this.profile && this.screen !== 'profiles' && this.screen !== 'create' ? this.profile.look : DEFAULT_LOOK, move);
   }
 
   choose(profile, screen = 'games') {
@@ -99,7 +100,7 @@ export class Menu {
     const logo = h(
       'div',
       { class: small ? 'logo small' : 'logo' },
-      avatar(this.profile && small ? this.profile.cat.color : DEFAULT_LOOK.color, 'happy'),
+      avatar(this.profile && small ? this.profile.look : DEFAULT_LOOK, 'happy'),
       h('h1', {}, h('span', {}, sv.title)),
     );
     card.replaceChildren(logo, ...[this[this.screen]()].flat(Infinity).filter((child) => child != null && child !== false));
@@ -156,9 +157,9 @@ export class Menu {
             {
               class: 'player',
               onclick: () => this.choose(profile),
-              onpointerenter: () => this.onPreview(profile.cat),
+              onpointerenter: () => this.onPreview(profile.look),
             },
-            avatar(profile.cat.color),
+            avatar(profile.look),
             h('span', { class: 'name' }, profile.name),
             h('span', { class: 'pill' }, `⭐ ${profile.stars}`),
           ),
@@ -169,7 +170,7 @@ export class Menu {
   }
 
   create() {
-    let color = DEFAULT_LOOK.color;
+    const look = newLook();
     let track = Object.keys(DECKS)[0];
     const tracks = Object.values(DECKS).map((deck) =>
       h(
@@ -186,26 +187,26 @@ export class Menu {
       ),
     );
     const input = h('input', { type: 'text', maxlength: 14, autocomplete: 'off' });
-    const swatches = Object.keys(CAT_COLORS).map((id) =>
+    const swatches = Object.keys(paletteOf(look)).map((id) =>
       h(
         'button',
         {
           type: 'button',
-          class: id === color ? 'swatch selected' : 'swatch',
-          title: sv.catColors[id],
+          class: id === look.paint.fur ? 'swatch selected' : 'swatch',
+          title: sv.colors[id],
           onclick: (event) => {
-            color = id;
+            look.paint.fur = id;
             swatches.forEach((swatch) => swatch.classList.toggle('selected', swatch === event.currentTarget));
-            this.onPreview({ ...DEFAULT_LOOK, color }, 'hop');
+            this.onPreview(look, 'hop');
           },
         },
-        avatar(id),
+        avatar({ ...look, paint: { fur: id } }),
       ),
     );
     const submit = (event) => {
       event.preventDefault();
       const name = input.value.trim();
-      if (name) this.choose(createProfile(name, track, { color }), 'levels');
+      if (name) this.choose(createProfile(name, track, look), 'levels');
       else input.focus();
     };
     return h(
@@ -257,15 +258,84 @@ export class Menu {
     ];
   }
 
+  // The pet's wardrobe: which creature it is, its colour and what it wears.
+  wardrobe() {
+    const { profile } = this;
+    const { look } = profile;
+    const dress = (change, move) => {
+      Object.assign(look, change);
+      save();
+      this.render();
+      this.onPreview(look, move);
+    };
+    // A button for something to pick, locked until it is earned and marked while new.
+    const choice = (entry, { selected, icon, onpick }) => {
+      const locked = !isUnlocked(profile, entry);
+      const fresh = profile.fresh.includes(entry.id);
+      return h(
+        'button',
+        {
+          class: `chip${selected ? ' selected' : ''}${locked ? ' locked' : ''}${fresh ? ' fresh' : ''}`,
+          disabled: locked,
+          onclick: () => {
+            profile.fresh = profile.fresh.filter((id) => id !== entry.id);
+            onpick();
+          },
+        },
+        icon,
+        locked ? `🔒 ${lockText(profile, entry)}` : nameOf(entry) ?? sv.nothingOn,
+        fresh && h('span', { class: 'tag' }, sv.newTag),
+      );
+    };
+    return [
+      h('h3', {}, sv.wardrobe),
+      CREATURES.length > 1 &&
+        h(
+          'div',
+          { class: 'chips' },
+          CREATURES.map((creature) =>
+            choice(creature, {
+              selected: look.creature === creature.id,
+              icon: avatar(asCreature(look, creature.id)),
+              onpick: () => look.creature !== creature.id && dress(asCreature(look, creature.id), 'wave'),
+            }),
+          ),
+        ),
+      h(
+        'div',
+        { class: 'dots' },
+        Object.entries(paletteOf(look)).map(([id, colors]) =>
+          h('button', {
+            class: id === look.paint.fur ? 'dot selected' : 'dot',
+            style: `background: ${hex(colors.fur)}`,
+            title: sv.colors[id],
+            onclick: () => dress({ paint: { ...look.paint, fur: id } }, 'hop'),
+          }),
+        ),
+      ),
+      h(
+        'div',
+        { class: 'chips' },
+        choice({ id: 'none' }, {
+          selected: Object.keys(look.wear).length === 0,
+          icon: avatar(look),
+          onpick: () => dress({ wear: {} }, 'spin'),
+        }),
+        ITEMS.map((item) =>
+          choice(item, {
+            selected: isWorn(look, item),
+            icon: h('span', {}, item.icon),
+            // One thing at a time for now; the slots allow more later.
+            onpick: () => dress({ wear: { [item.slot]: item.id } }, 'spin'),
+          }),
+        ),
+      ),
+    ];
+  }
+
   levels() {
     const { profile } = this;
     const deck = DECKS[profile.track];
-    const dress = (change, move) => {
-      Object.assign(profile.cat, change);
-      save();
-      this.render();
-      this.onPreview(profile.cat, move);
-    };
     const remove = () => {
       if (!confirm(sv.confirmDelete(profile.name))) return;
       deleteProfile(profile.id);
@@ -275,42 +345,7 @@ export class Menu {
     return [
       h('button', { class: 'btn ghost small back', onclick: () => this.go('games') }, sv.switchGame),
       h('h2', {}, sv.hello(profile.name), ' ', h('span', { class: 'pill' }, `⭐ ${profile.stars}`)),
-      h('h3', {}, sv.wardrobe),
-      h(
-        'div',
-        { class: 'dots' },
-        Object.entries(CAT_COLORS).map(([id, colors]) =>
-          h('button', {
-            class: id === profile.cat.color ? 'dot selected' : 'dot',
-            style: `background: ${hex(colors.fur)}`,
-            title: sv.catColors[id],
-            onclick: () => dress({ color: id }, 'hop'),
-          }),
-        ),
-      ),
-      h(
-        'div',
-        { class: 'chips' },
-        ACCESSORIES.map((item) => {
-          const locked = !isUnlocked(profile, item);
-          const selected = profile.cat.accessory === item.id;
-          const fresh = profile.fresh.includes(item.id);
-          return h(
-            'button',
-            {
-              class: `chip${selected ? ' selected' : ''}${locked ? ' locked' : ''}${fresh ? ' fresh' : ''}`,
-              disabled: locked,
-              onclick: () => {
-                profile.fresh = profile.fresh.filter((id) => id !== item.id);
-                dress({ accessory: item.id }, 'spin');
-              },
-            },
-            h('span', {}, item.icon),
-            locked ? `🔒 ${lockText(profile, item)}` : sv.accessories[item.id],
-            fresh && h('span', { class: 'tag' }, sv.newTag),
-          );
-        }),
-      ),
+      this.wardrobe(),
       h('h3', {}, sv.whatPractice),
       deck.soundboard && h('button', { class: 'btn ghost small', onclick: () => this.go('listen') }, sv.listen),
       h(

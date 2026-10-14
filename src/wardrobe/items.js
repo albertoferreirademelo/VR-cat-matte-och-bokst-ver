@@ -1,9 +1,10 @@
 import * as THREE from 'three';
-import { toon } from './toon.js';
-import { starShape } from './shapes.js';
+import { toon } from '../game/toon.js';
+import { starShape } from '../game/shapes.js';
 
-// Each builder returns a group placed relative to the centre of the kitten's
-// head, which is a ball of radius 0.13 that looks along +z.
+// Each builder returns a group placed on a reference head: the cat's, a ball of
+// radius 0.13 centred on the origin that looks along +z. Every creature has an
+// anchor per slot that moves and scales this reference head onto its own.
 const HEAD = 0.13;
 
 function mesh(geometry, material, x = 0, y = 0, z = 0) {
@@ -147,11 +148,11 @@ const BUILDERS = {
   },
 };
 
-export function buildAccessory(id) {
+export function buildItem(id) {
   return BUILDERS[id]?.() ?? null;
 }
 
-export function disposeAccessory(group) {
+export function disposeItem(group) {
   group.traverse((part) => {
     part.geometry?.dispose();
     part.material?.map?.dispose();
