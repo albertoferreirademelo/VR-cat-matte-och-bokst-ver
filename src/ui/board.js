@@ -35,6 +35,10 @@ function drawSpeaker(g, x, y, size) {
   }
 }
 
+// Pictures on transparent canvases skip their see-through pixels (alphaTest), so the empty
+// corners of a rectangle do not hide what is behind them, like a kitten passing behind a sign.
+export const SEE_THROUGH = 0.05;
+
 // A flat panel with text on it, drawn on a canvas.
 export class Board extends THREE.Mesh {
   constructor(width, height, style = BOARD_STYLES.note) {
@@ -44,7 +48,7 @@ export class Board extends THREE.Mesh {
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = 8;
-    super(new THREE.PlaneGeometry(width, height), new THREE.MeshBasicMaterial({ map: texture, transparent: true }));
+    super(new THREE.PlaneGeometry(width, height), new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: SEE_THROUGH }));
     this.canvas = canvas;
     this.texture = texture;
     this.style = style;

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FONT } from '../ui/board.js';
+import { FONT, SEE_THROUGH } from '../ui/board.js';
 import { heartShape, starShape, puffy } from './shapes.js';
 import { ease, Spring } from './motion.js';
 
@@ -153,7 +153,7 @@ export class Balloon extends THREE.Group {
     this.hit = new THREE.Mesh(hitGeo, hitMat);
     this.hit.userData.owner = this;
 
-    this.label = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTexture(String(value)), transparent: true }));
+    this.label = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTexture(String(value)), transparent: true, alphaTest: SEE_THROUGH }));
     this.label.scale.setScalar(form.label);
 
     this.add(this.form, this.hit, this.label);

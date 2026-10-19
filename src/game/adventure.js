@@ -45,6 +45,9 @@ const TROLL_NEAR = new THREE.Vector3(0, 2.15, -3.2);
 const ANSWER_SPOT = new THREE.Vector3(0, 1.8, -1.65);
 const GOLDEN_SPOT = new THREE.Vector3(0, 1.82, -1.8);
 const BENCH = new THREE.Vector3(1.02, 0.44, -1.38);
+// The rainbow stands far behind the troll and frames it, instead of cutting through it.
+const RAINBOW_SPOT = new THREE.Vector3(0, 0.4, -5.8);
+const RAINBOW_SIZE = 1.75;
 const SEATS_PER_ROW = 6;
 const SEAT_GAP = 0.125;
 const GREEN = '#1b8a4b';
@@ -118,6 +121,9 @@ export class Adventure {
     this.group.visible = true;
     for (const cloud of game.clouds) cloud.visible = false;
     game.stars.visible = false;
+    this.rainbowHome ??= game.rainbow.position.clone();
+    game.rainbow.position.copy(RAINBOW_SPOT);
+    game.rainbow.scale.setScalar(RAINBOW_SIZE);
     game.state = 'adventure';
 
     this.troll.reset(this.master ? MASTER_HEARTS : HEARTS, this.master);
@@ -159,6 +165,8 @@ export class Adventure {
     this.group.visible = false;
     for (const cloud of this.game.clouds) cloud.visible = true;
     this.game.stars.visible = true;
+    if (this.rainbowHome) this.game.rainbow.position.copy(this.rainbowHome);
+    this.game.rainbow.scale.setScalar(1);
   }
 
   dropOrb(orb) {

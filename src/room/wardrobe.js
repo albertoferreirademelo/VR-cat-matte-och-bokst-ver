@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { toon } from '../game/toon.js';
-import { FONT } from '../ui/board.js';
+import { FONT, SEE_THROUGH } from '../ui/board.js';
 import { ROOM } from './house.js';
 
 export const BODY = { width: 1.8, height: 1.95, depth: 0.55, feet: 0.06 };
@@ -140,7 +140,7 @@ export class Wardrobe extends THREE.Group {
     shelves.forEach(({ id, icon, label }, i) => {
       const badge = new THREE.Mesh(
         new THREE.CircleGeometry(0.115, 40),
-        new THREE.MeshBasicMaterial({ map: badgeTexture(icon, label), transparent: true }),
+        new THREE.MeshBasicMaterial({ map: badgeTexture(icon, label), transparent: true, alphaTest: SEE_THROUGH }),
       );
       badge.position.set((i - (shelves.length - 1) / 2) * 0.42, top + 0.16, FRONT + 0.03);
       badge.userData.base = badge.position.clone();

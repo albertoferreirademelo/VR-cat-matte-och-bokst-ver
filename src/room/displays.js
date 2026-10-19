@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { toon } from '../game/toon.js';
-import { FONT } from '../ui/board.js';
+import { FONT, SEE_THROUGH } from '../ui/board.js';
 import { buildItem, disposeItem } from '../wardrobe/items.js';
 import { buildWand } from '../wardrobe/wands.js';
 import { balloonForm } from '../game/balloon.js';
@@ -24,7 +24,7 @@ export class Tag extends THREE.Mesh {
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = 4;
-    super(new THREE.PlaneGeometry(width, height), new THREE.MeshBasicMaterial({ map: texture, transparent: true }));
+    super(new THREE.PlaneGeometry(width, height), new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: SEE_THROUGH }));
     this.canvas = canvas;
     this.text = null;
   }

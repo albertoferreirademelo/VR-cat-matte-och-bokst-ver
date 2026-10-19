@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { balloonForm, labelTexture } from './balloon.js';
 import { Kitten } from './kittens.js';
 import { toon } from './toon.js';
+import { SEE_THROUGH } from '../ui/board.js';
 import { ease, Spring } from './motion.js';
 
 // The things to shoot in the adventure, each carrying an answer:
@@ -88,7 +89,7 @@ export class Orb extends THREE.Group {
     this.add(this.hit);
 
     if (value != null) {
-      this.label = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTexture(String(value)), transparent: true, depthTest: false }));
+      this.label = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTexture(String(value)), transparent: true, alphaTest: SEE_THROUGH }));
       this.label.scale.setScalar(0.27);
       this.label.renderOrder = 3;
       this.add(this.label);

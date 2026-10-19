@@ -4,6 +4,7 @@ import { EXPRESSIONS, MID, hex, ellipse } from '../wardrobe/creatures/drawing.js
 import { PALETTES } from '../wardrobe/catalog.js';
 import { paintOf } from '../wardrobe/look.js';
 import { Spring } from './motion.js';
+import { SEE_THROUGH } from '../ui/board.js';
 
 // The kittens the player rescues from the cloud troll's bubbles. They are flat, sticker-like
 // pictures (cheap enough to have many in a headset) drawn with the same head as the pet cat.
@@ -100,7 +101,7 @@ export class Kitten extends THREE.Group {
   constructor(look = kittenLook(), height = 0.2) {
     super();
     this.look = look;
-    this.sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: kittenTexture(look, 'open'), transparent: true }));
+    this.sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: kittenTexture(look, 'open'), transparent: true, alphaTest: SEE_THROUGH }));
     this.sprite.center.set(0.5, 0);
     // Kept so squashing can scale around the resting size.
     this.size = { width: (height * WIDTH) / HEIGHT, height };

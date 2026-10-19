@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { toon } from './toon.js';
 import { heartShape, puffy } from './shapes.js';
 import { Spring } from './motion.js';
+import { SEE_THROUGH } from '../ui/board.js';
 
 // Molntrollet: a grumpy storm cloud who has blown the kittens into bubbles. Silly, never scary.
 // When it has lost all its hearts it turns into a small, friendly white cloud.
@@ -168,7 +169,7 @@ export class Troll extends THREE.Group {
     this.texture.colorSpace = THREE.SRGBColorSpace;
     this.face = new THREE.Mesh(
       new THREE.PlaneGeometry(0.74, 0.52),
-      new THREE.MeshBasicMaterial({ map: this.texture, transparent: true }),
+      new THREE.MeshBasicMaterial({ map: this.texture, transparent: true, alphaTest: SEE_THROUGH }),
     );
     this.face.position.set(0, 0.06, 0.4);
     this.body.add(this.face);
