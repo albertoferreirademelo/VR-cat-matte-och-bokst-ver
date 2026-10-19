@@ -102,6 +102,8 @@ export const sfx = {
     tone(2093, { at: 0.06, dur: 0.4, gain: 0.14 });
   },
   boing: () => tone(240, { dur: 0.22, to: 620, gain: 0.14 }),
+  // One more thing counted in a story: a little higher each time.
+  tick: (step = 0) => tone(520 * 2 ** (Math.min(step, 24) / 24), { dur: 0.07, type: 'triangle', gain: 0.07 }),
   // Several right answers in a row.
   combo: () => melody([659, 784, 988, 1175, 1568], 0.06, 0.25, 0.2),
   firework: () => {

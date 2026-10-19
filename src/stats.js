@@ -6,7 +6,8 @@ const KEEP_ROUNDS = 400;
 const DAY = 24 * 3600 * 1000;
 
 // Adds a played round to the player's log, once, even if it was stopped halfway.
-// Each answer is kept short: [key, 1 if right, seconds, the answer picked or null].
+// Each answer is kept short: [key, 1 if right, seconds, the answer picked or null], and a
+// fifth 1 if it was asked as a story (a word problem: its time is reading time, not speed).
 export function logRound(profile, session) {
   if (session.logged || session.answers.length === 0) return;
   session.logged = true;
@@ -16,7 +17,10 @@ export function logRound(profile, session) {
     deck: session.deck.id,
     level: session.level.id,
     seconds: Math.round(((session.lastAnswerAt ?? Date.now()) - session.started) / 1000),
-    answers: session.answers.map(({ key, correct, ms, picked }) => [key, correct ? 1 : 0, Math.round(ms / 100) / 10, picked]),
+    answers: session.answers.map(({ key, correct, ms, picked, story }) => {
+      const answer = [key, correct ? 1 : 0, Math.round(ms / 100) / 10, picked];
+      return story ? [...answer, 1] : answer;
+    }),
   });
   if (profile.log.length > KEEP_ROUNDS) profile.log.splice(0, profile.log.length - KEEP_ROUNDS);
 }
@@ -108,9 +112,10 @@ export function byWeek(profile, deckId, weeks = 6, now = Date.now()) {
       .filter((round) => round.at >= start && round.at < start + 7 * DAY)
       .flatMap((round) => round.answers);
     const right = answers.filter((answer) => answer[1]);
+    const timed = right.filter((answer) => !answer[4]);
     return {
       week: weekOf(start).number,
-      seconds: right.length ? right.reduce((sum, answer) => sum + answer[2], 0) / right.length : null,
+      seconds: timed.length ? timed.reduce((sum, answer) => sum + answer[2], 0) / timed.length : null,
       share: answers.length ? right.length / answers.length : null,
     };
   });

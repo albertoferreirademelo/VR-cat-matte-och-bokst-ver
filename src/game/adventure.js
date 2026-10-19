@@ -7,6 +7,9 @@ import { BALLOON_COLORS } from './balloon.js';
 import { Spring, ease } from './motion.js';
 import { Board, BOARD_STYLES } from '../ui/board.js';
 import { FactPicture } from '../ui/factPicture.js';
+import { showCaption, hideCaption } from '../ui/caption.js';
+import { makeStory, STORY_CHANCE } from './stories.js';
+import { StoryScene } from './storyScene.js';
 import { Session, SPEEDS } from '../learner.js';
 import { sfx, music } from '../audio.js';
 import { sv } from '../i18n/sv.js';
@@ -28,6 +31,8 @@ import { logRound } from '../stats.js';
 //      and gives up the golden bubble with the level's own kitten, kept in the collection.
 // Right answers in a row raise the coin combo (×2, ×3). A miss shows the right answer and
 // a picture of the fact (see FactPicture). Nothing is ever lost: the round is always won.
+// About one rescue question in four is a story (a word problem, see stories.js): its text is
+// on a bigger board with its things above it, and after the answer the things act it out.
 
 const RESCUE_QUESTIONS = 6;
 const HEARTS = 5;
@@ -41,8 +46,12 @@ const DISTANCE = 2;
 const SPREAD = 0.4; // radians between two answers
 const SHIELD = 1.05; // how close storm balls come before they splat
 const TROLL_FAR = new THREE.Vector3(0, 2.5, -4.3);
+// While a story is read the bubbles float higher, so the troll floats up above them and
+// keeps its face in view (also for a child looking from below).
+const TROLL_ABOVE = new THREE.Vector3(0, 3.8, -4.3);
 const TROLL_NEAR = new THREE.Vector3(0, 2.15, -3.2);
 const ANSWER_SPOT = new THREE.Vector3(0, 1.8, -1.65);
+const STORY_ANSWER_SPOT = new THREE.Vector3(-0.62, 1.6, -1.65); // beside a story's things, not on them
 const GOLDEN_SPOT = new THREE.Vector3(0, 1.82, -1.8);
 const BENCH = new THREE.Vector3(1.02, 0.44, -1.38);
 // The rainbow stands far behind the troll and frames it, instead of cutting through it.
@@ -51,6 +60,9 @@ const RAINBOW_SIZE = 1.75;
 const SEATS_PER_ROW = 6;
 const SEAT_GAP = 0.125;
 const GREEN = '#1b8a4b';
+const STORY_LIFT = 0.42; // bubbles float higher over a story's things
+const READ_SECONDS = 3; // extra time for a story question, plus a little per word
+const READ_PER_WORD = 0.45;
 
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
 const facePlayer = (object) => (object.rotation.y = Math.atan2(-object.position.x, -object.position.z));
@@ -93,9 +105,20 @@ export class Adventure {
     this.pictureSize = new Spring(0, 300, 14);
     this.picture.scale.setScalar(0.0001);
 
+    // A story question: the text on a bigger board in place of the sign, its things above it.
+    this.storyBoard = new Board(1.12, 0.46, BOARD_STYLES.story);
+    this.storyBoard.position.set(0.3, 0.95, -1.58);
+    facePlayer(this.storyBoard);
+    this.storyBoard.visible = false;
+    this.storyScene = new StoryScene(game.tweens);
+    this.storyScene.position.set(0.3, 1.44, -1.62);
+    facePlayer(this.storyScene);
+    this.story = null;
+    this.readTime = 0;
+
     this.trollSpot = new THREE.Vector3();
     this.gaze = new THREE.Vector3();
-    this.group.add(this.troll, this.bench, this.hud, this.picture);
+    this.group.add(this.troll, this.bench, this.hud, this.picture, this.storyBoard, this.storyScene);
     game.stage.add(this.group);
   }
 
@@ -118,6 +141,7 @@ export class Adventure {
     this.coins = 0;
     this.streak = 0;
     this.boss = false;
+    this.lastStory = false;
     this.group.visible = true;
     for (const cloud of game.clouds) cloud.visible = false;
     game.stars.visible = false;
@@ -128,6 +152,7 @@ export class Adventure {
 
     this.troll.reset(this.master ? MASTER_HEARTS : HEARTS, this.master);
     this.troll.position.copy(TROLL_FAR);
+    this.trollGoal = TROLL_FAR;
     this.troll.scale.setScalar(0.0001);
     facePlayer(this.troll);
     this.updateHud();
@@ -160,6 +185,8 @@ export class Adventure {
     this.friendKitten = null;
     this.golden = null;
     this.pictureSize.target = 0;
+    this.showStory(null);
+    this.storyScene.clear();
     this.step = 'idle';
     if (this.group.visible) music.stop();
     this.group.visible = false;
@@ -194,21 +221,28 @@ export class Adventure {
     this.boss = this.asked >= RESCUE_QUESTIONS;
     const question = this.session.next();
     this.question = question;
-    game.sign.setText(game.deck.ask(question));
+    const story = !this.boss && !this.lastStory && Math.random() < STORY_CHANCE ? makeStory(question) : null;
+    this.lastStory = Boolean(story);
+    this.showStory(story);
+    if (story) this.storyScene.show(story);
+    if (!this.boss) this.moveTroll(story ? TROLL_ABOVE : TROLL_FAR);
+    else game.sign.setText(game.deck.ask(question));
     game.signSize.value = 0.7;
+    const lift = story ? STORY_LIFT : 0;
 
     const colors = [...BALLOON_COLORS].sort(() => Math.random() - 0.5);
     const count = question.choices.length;
     question.choices.forEach((value, i) => {
       const angle = (i - (count - 1) / 2) * SPREAD;
-      const slot = new THREE.Vector3(Math.sin(angle) * DISTANCE, 1.5 + (i % 2) * 0.16, -Math.cos(angle) * DISTANCE);
+      const slot = new THREE.Vector3(Math.sin(angle) * DISTANCE, 1.5 + lift + (i % 2) * 0.16, -Math.cos(angle) * DISTANCE);
       const delay = i * 0.16;
       const orb = this.boss
         ? new Orb('storm', value, { delay })
         : new Orb('bubble', value, { color: colors[i % colors.length], look: kittenLook(), delay });
       orb.slot = slot;
       orb.hit.userData.onHit = () => this.resolve(orb);
-      const start = this.boss ? this.troll.hand(1) : this.troll.mouth();
+      // Bubbles come from where the troll's mouth will be, also while it is moving there.
+      const start = this.boss ? this.troll.hand(1) : this.troll.mouth().sub(this.troll.position).add(this.trollGoal);
       orb.position.copy(start);
       orb.fly(arc(start, slot, this.boss ? 0.5 : 0.2), 0.75, () => {
         orb.mode = 'float';
@@ -226,9 +260,30 @@ export class Adventure {
         }
       });
     });
-    // The clock starts once the answers have arrived.
-    this.elapsed = -0.75 - (count - 1) * 0.16;
+    // The clock starts once the answers have arrived, and a story gets time to be read first.
+    const words = story ? story.sentences.join(' ').split(' ').length : 0;
+    this.readTime = story ? READ_SECONDS + words * READ_PER_WORD : 0;
+    this.elapsed = -0.75 - (count - 1) * 0.16 - this.readTime;
     this.step = 'asking';
+  }
+
+  // Floats the troll to `spot`, unless it is there or on its way already.
+  moveTroll(spot) {
+    if (this.trollGoal?.equals(spot)) return;
+    this.trollGoal = spot;
+    const from = this.troll.position.clone();
+    this.game.tweens.add(0.6, (p) => this.troll.position.lerpVectors(from, spot, p), { ease: ease.inOutQuad });
+  }
+
+  // Shows a story's text on the story board (and as a caption on small screens), or the sign.
+  showStory(story) {
+    this.story = story;
+    this.storyBoard.visible = Boolean(story);
+    this.game.sign.visible = !story;
+    if (story) {
+      this.storyBoard.setText(story.lines);
+      showCaption(story.sentences);
+    } else hideCaption();
   }
 
   // `picked` is the orb shot, or null when time ran out.
@@ -238,7 +293,8 @@ export class Adventure {
     const question = this.question;
     const correct = picked?.value === question.answer;
     const before = this.session.pace;
-    this.session.answer(correct, Math.max(0, this.elapsed) * 1000, picked?.value ?? null);
+    const story = this.story;
+    this.session.answer(correct, Math.max(0, this.elapsed + this.readTime) * 1000, picked?.value ?? null, { story: Boolean(story) });
     const faster = this.timed && SPEEDS.some((speed) => before > speed && this.session.pace <= speed);
     game.onSave();
     this.asked += 1;
@@ -246,8 +302,19 @@ export class Adventure {
     this.streak = correct ? this.streak + 1 : 0;
     this.step = 'feedback';
     game.pet.watch(null);
+    // A story turns into its sum, and its things act out what it means. Banners wait until
+    // they are done, as they would cover them.
+    this.showStory(null);
     game.sign.setText(game.deck.tell(question), correct ? GREEN : undefined);
     game.signSize.value = correct ? 1.25 : 0.9;
+    const meaning = story ? this.storyScene.play() + 0.4 : 0;
+    const announce = (banner, text) => {
+      if (!meaning) return game.announce(banner, text);
+      this.later(meaning, () => {
+        this.storyScene.hide();
+        game.announce(banner, text);
+      });
+    };
 
     const right = this.orbs.find((orb) => orb.value === question.answer && !orb.done);
     // Storm balls nobody shot in time hit the shield; everything else goes back to the troll.
@@ -265,13 +332,13 @@ export class Adventure {
       this.cheerGang();
       const times = this.multiplier();
       const comboNow = this.streak === 3 || this.streak === 6;
-      game.announce(game.cheer, comboNow ? sv.adventure.combo(times) : faster ? sv.faster : pick(sv.praise));
+      announce(game.cheer, comboNow ? sv.adventure.combo(times) : faster ? sv.faster : pick(sv.praise));
       if (comboNow) sfx.combo();
       if (this.streak >= 3) game.rainbow.show();
       if (this.boss) this.strikeBack(picked);
       else {
         this.freeKitten(picked);
-        this.later(1.5, () => this.next());
+        this.later(meaning + 1.5, () => this.next());
       }
       return;
     }
@@ -287,19 +354,19 @@ export class Adventure {
     }
     if (right) {
       right.mode = 'goal';
-      right.goal = ANSWER_SPOT;
+      right.goal = story ? STORY_ANSWER_SPOT : ANSWER_SPOT;
     }
-    if (FactPicture.fits(question)) {
+    if (!story && FactPicture.fits(question)) {
       this.picture.show(question);
       this.pictureSize.target = 1;
     }
     game.pet.play('oops');
     for (const kitten of this.gang) kitten.setFace('worried', 1.4);
-    game.announce(game.note, pick(sv.encourage));
+    announce(game.note, pick(sv.encourage));
     this.troll.laugh();
     sfx.giggle();
-    this.later(2.6, () => right && this.sendBack(right));
-    this.later(3.3, () => this.next());
+    this.later(meaning + 2.6, () => right && this.sendBack(right));
+    this.later(meaning + 3.3, () => this.next());
   }
 
   next() {
@@ -436,6 +503,7 @@ export class Adventure {
     sfx.giggle();
     music.play('boss');
     const from = this.troll.position.clone();
+    this.trollGoal = TROLL_NEAR;
     game.tweens.add(1.4, (p) => this.troll.position.lerpVectors(from, TROLL_NEAR, p), {
       ease: ease.inOutQuad,
       done: () => {
@@ -640,6 +708,7 @@ export class Adventure {
     for (const kitten of [...this.gang, ...this.flying]) kitten.update(dt, t);
     this.friendKitten?.update(dt, t);
 
+    this.storyScene.update(dt, t);
     this.troll.update(dt, t);
     facePlayer(this.troll);
     this.hudSize.target = 1;

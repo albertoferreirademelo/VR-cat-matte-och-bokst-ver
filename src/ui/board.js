@@ -10,6 +10,8 @@ export const BOARD_STYLES = {
   // Encouragement after a miss: calm and soft.
   note: { fill: '#f3e8ff', border: '#9b5de5', color: '#3c096c' },
   button: { fill: '#7b2cbf', border: '#ffffff', color: '#ffffff' },
+  // A story question: plain words, the numbers stand out.
+  story: { fill: '#ffffff', border: '#7b2cbf', color: '#3c096c', numbers: '#f15bb5' },
 };
 
 const SYMBOL_COLORS = { '=': '#9b5de5', '?': '#ff9f1c' };
@@ -153,7 +155,7 @@ export class Board extends THREE.Mesh {
       let x = box.x + (box.width - total) / 2;
       const y = box.y + lineHeight * (i + 0.5) + size * 0.06;
       for (const word of words) {
-        if (color || !this.style.colorful) g.fillStyle = color ?? this.style.color;
+        if (color || !this.style.colorful) g.fillStyle = color ?? (this.style.numbers && /\d/.test(word) ? this.style.numbers : this.style.color);
         else g.fillStyle = SYMBOL_COLORS[word] ?? (/\d/.test(word) ? this.style.color : OPERATOR_COLOR);
         g.fillText(word, x, y);
         x += g.measureText(word).width + size * 0.3;

@@ -16,7 +16,10 @@ It runs in the browser: on a phone, tablet or computer, and in VR or passthrough
   takes two). Without hearts it turns friendly and gives up a golden bubble with the level's own
   named kitten, collected in **Kattungar**. Right answers in a row raise a coin combo (×2, ×3), and
   after a miss a picture shows the fact: ten-frames for plus and minus, rows of dots for times,
-  equal groups for division. There is music (grown-ups can turn it off).
+  equal groups for division. About one rescue question in four is a short story instead of a sum
+  ("12 fiskar delas lika mellan 3 kattungar"), with the fish, yarn or wheels shown above it; after
+  the answer they act it out, for example dealt to the kittens one at a time. Stories get extra
+  reading time and do not count toward answer speed. There is music (grown-ups can turn it off).
   Levels go from "plus 1 och 2" and "tiokompisar" through the multiplication tables to division
   (inspired by Matteboken's "de fyra räknesätten").
   The answers speed up or slow down to suit the player, and facts that were missed come back more often.

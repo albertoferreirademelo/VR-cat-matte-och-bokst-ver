@@ -119,17 +119,19 @@ export class Session {
     return pool[pool.length - 1];
   }
 
-  // `picked` is the answer chosen, or null when time ran out.
-  answer(correct, ms, picked = null) {
+  // `picked` is the answer chosen, or null when time ran out. A `story` question (a word
+  // problem, see src/game/stories.js) takes time to read, so it says nothing about speed:
+  // it neither counts as fast nor changes the pace.
+  answer(correct, ms, picked = null, { story = false } = {}) {
     const item = this.current;
     const stat = statOf(this.profile, item.key);
     stat.seen += 1;
-    this.answers.push({ key: item.key, correct, ms, picked });
+    this.answers.push({ key: item.key, correct, ms, picked, ...(story && { story }) });
     this.lastAnswerAt = Date.now();
     if (correct) {
       stat.right += 1;
-      stat.ms = stat.ms == null ? ms : Math.round(stat.ms * 0.6 + ms * 0.4);
-      const fast = ms <= (this.deck.fastMs ?? FAST_MS);
+      if (!story) stat.ms = stat.ms == null ? ms : Math.round(stat.ms * 0.6 + ms * 0.4);
+      const fast = !story && ms <= (this.deck.fastMs ?? FAST_MS);
       stat.box = fast ? Math.min(MAX_BOX, stat.box + 1) : Math.max(stat.box, 1);
       this.correct += 1;
       this.profile.stars += 1;
@@ -140,7 +142,7 @@ export class Session {
     }
     this.profile.stats[item.key] = stat;
     if (this.deck.id === 'bokstaver') updateLetterUnlocks(this.profile);
-    if (this.timed) {
+    if (this.timed && !story) {
       const { step, min } = this.tempo;
       const pace = this.pace * (correct ? step : 1 / step ** 4);
       this.profile.pace[this.level.id] = Math.min(MAX_PACE, Math.max(min, pace));

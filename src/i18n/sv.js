@@ -127,6 +127,30 @@ export const sv = {
     savedAgain: (name) => `${name} är räddad igen!`,
     rescued: (count) => `Du räddade ${count} kattungar!`,
   },
+  // Räknesagor: a math fact told as a short story, now and then in the rescue (see src/game/stories.js).
+  // Each gets the numbers and a name and gives back the story's sentences, the question last.
+  story: {
+    names: ['Clara', 'Elsa', 'Maja', 'Saga', 'Alva', 'Omar', 'Leo', 'Nils', 'Ali', 'Liam'],
+    add: {
+      fish: ({ name, a, b }) => [`${name} har ${a} ${a === 1 ? 'fisk' : 'fiskar'} och får ${b} till.`, `Hur många fiskar har ${name} nu?`],
+      yarn: ({ name, a, b }) => [`${name} har ${a} nystan och hittar ${b} till.`, `Hur många nystan har ${name} nu?`],
+    },
+    sub: {
+      fish: ({ name, a, b }) => [`${name} har ${a} fiskar och ger bort ${b}.`, `Hur många fiskar har ${name} kvar?`],
+      yarn: ({ a, b }) => [`Det finns ${a} nystan. Kattungarna rullar bort ${b}.`, 'Hur många nystan är kvar?'],
+    },
+    mul: {
+      fish: ({ a, b }) => [`Det står ${a} korgar med ${b} fiskar i varje.`, 'Hur många fiskar är det?'],
+      yarn: ({ a, b }) => [`${a} kattungar har ${b} nystan var.`, 'Hur många nystan har de tillsammans?'],
+    },
+    share: {
+      fish: ({ a, b }) => [`${a} fiskar delas lika mellan ${b} kattungar.`, 'Hur många fiskar får varje kattunge?'],
+    },
+    group: {
+      fish: ({ name, a, b }) => [`${name} lägger ${a} fiskar i skålar, ${b} i varje.`, 'Hur många skålar blir det?'],
+      wheel: ({ a }) => [`Det finns ${a} hjul. Varje bil ska ha 4 hjul.`, 'Hur många bilar blir det?'],
+    },
+  },
   kittens: {
     title: 'Mina kattungar',
     tile: 'Kattungar',
