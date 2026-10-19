@@ -61,35 +61,38 @@ function drawFace(g, face, colors, { nose = false } = {}) {
 
 // A flat picture of the cat's head for the menus.
 export function catPicture(colors, face) {
-  return pictureURL((g) => {
-    g.lineWidth = 14;
-    g.strokeStyle = hex(colors.dark);
-    for (const side of [-1, 1]) {
-      g.beginPath();
-      g.moveTo(MID + side * 190, 230);
-      g.lineTo(MID + side * 168, 36);
-      g.lineTo(MID + side * 40, 130);
-      g.closePath();
-      g.fillStyle = hex(colors.fur);
-      g.fill();
-      g.stroke();
-      g.beginPath();
-      g.moveTo(MID + side * 164, 180);
-      g.lineTo(MID + side * 152, 84);
-      g.lineTo(MID + side * 88, 134);
-      g.closePath();
-      g.fillStyle = '#ff9ecb';
-      g.fill();
-    }
-    ellipse(g, MID, 296, 216, 186);
+  return pictureURL((g) => drawCatHead(g, colors, face));
+}
+
+// The cat's head as in its menu picture, in the 512 square (also used for the kittens).
+export function drawCatHead(g, colors, face) {
+  g.lineWidth = 14;
+  g.strokeStyle = hex(colors.dark);
+  for (const side of [-1, 1]) {
+    g.beginPath();
+    g.moveTo(MID + side * 190, 230);
+    g.lineTo(MID + side * 168, 36);
+    g.lineTo(MID + side * 40, 130);
+    g.closePath();
     g.fillStyle = hex(colors.fur);
     g.fill();
     g.stroke();
-    g.translate(MID, 300);
-    g.scale(0.76, 0.76);
-    g.translate(-MID, -276);
-    drawFace(g, face, colors, { nose: true });
-  });
+    g.beginPath();
+    g.moveTo(MID + side * 164, 180);
+    g.lineTo(MID + side * 152, 84);
+    g.lineTo(MID + side * 88, 134);
+    g.closePath();
+    g.fillStyle = '#ff9ecb';
+    g.fill();
+  }
+  ellipse(g, MID, 296, 216, 186);
+  g.fillStyle = hex(colors.fur);
+  g.fill();
+  g.stroke();
+  g.translate(MID, 300);
+  g.scale(0.76, 0.76);
+  g.translate(-MID, -276);
+  drawFace(g, face, colors, { nose: true });
 }
 
 // A cartoon kitten with a collar and bell, fluffy cheeks and a long tail.

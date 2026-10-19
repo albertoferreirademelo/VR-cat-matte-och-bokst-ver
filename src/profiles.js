@@ -30,6 +30,8 @@ function read() {
     profile.fresh ??= [];
     profile.lastLevels ??= { [profile.track]: profile.lastLevel };
     profile.letterModes ??= {};
+    profile.kittens ??= 0;
+    profile.friends ??= [];
     updateLetterUnlocks(profile);
     updateUnlocks(profile);
   }
@@ -66,6 +68,8 @@ export function createProfile(name, track, look) {
     lastLevels: {}, // most recent level in each subject
     letterModes: {}, // letter group -> both, upper or lower
     letterUnlocks: [],
+    kittens: 0, // bubble kittens rescued in the math adventure
+    friends: [], // levels whose own kitten is rescued, see src/friends.js
   };
   data.profiles.push(profile);
   save();

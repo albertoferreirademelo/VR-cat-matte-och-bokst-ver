@@ -132,13 +132,30 @@ button {
     justify-content: flex-start;
   }
 
-  .stage.levels {
-    top: 33vh;
+  .stage.home {
+    top: 31vh;
   }
 }
 
 /* On a narrow screen the top bar shrinks so the name and both counters fit. */
 @media (max-width: 520px) {
+  .stage .switcher {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .stage .mini {
+    gap: 4px;
+    padding: 4px 10px 4px 4px;
+    font-size: 15px;
+  }
+
+  .stage .mini .art {
+    min-width: 32px;
+    height: 30px;
+    font-size: 15px;
+  }
+
   .me {
     max-width: 46vw;
     font-size: 17px;
@@ -570,114 +587,101 @@ button.tile:focus-visible {
   opacity: 0.8;
 }
 
-/* ---- Home: the usual game as one big button, the rest small beside it ---- */
+/* ---- Home: the usual game's path, with the other games and the room above it ---- */
 .stage.home {
-  justify-content: center;
+  overflow: hidden;
 }
 
-.hero {
+.switcher {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.mini {
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: 4px;
-  width: min(460px, 100%);
-  padding: 18px 16px 20px;
-  border: 6px solid #fff;
-  border-radius: 40px;
-  background: linear-gradient(var(--light), var(--c));
-  color: #fff;
-  box-shadow:
-    0 10px 0 var(--dark),
-    0 22px 34px rgba(60, 9, 108, 0.28);
-  rotate: -1.5deg;
-  transition:
-    rotate 0.15s,
-    scale 0.15s;
-}
-
-.hero:hover,
-.hero:focus-visible {
-  rotate: 0deg;
-  scale: 1.03;
-}
-
-.hero:active {
-  scale: 0.98;
-}
-
-.hero .art {
-  font-size: 92px;
-  font-weight: 700;
-  line-height: 1;
-  -webkit-text-stroke: 11px var(--dark);
-  paint-order: stroke fill;
-}
-
-.hero .label {
-  font-size: 36px;
-  font-weight: 700;
-  -webkit-text-stroke: 7px var(--dark);
-  paint-order: stroke fill;
-}
-
-.hero .level {
-  padding: 3px 16px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--dark);
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.hero .level .stars {
-  margin-left: 6px;
-  font-size: 20px;
-}
-
-.corner .btn.alt {
-  padding: 8px 18px;
-  font-size: 18px;
-}
-
-.hero .go {
-  margin-top: 10px;
-  padding: 8px 40px;
+  gap: 8px;
+  padding: 6px 18px 6px 8px;
   border: 4px solid #fff;
   border-radius: 999px;
-  background: linear-gradient(#ff8fd0, var(--pink));
-  font-size: 34px;
+  background: linear-gradient(var(--light), var(--c));
+  color: #fff;
+  font-size: 20px;
   font-weight: 700;
-  box-shadow: 0 6px 0 var(--pink-dark);
-  animation: breathe 1.8s ease-in-out infinite;
+  box-shadow: 0 5px 0 var(--dark);
+  transition: scale 0.12s;
 }
 
-.tiles.row {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+button.mini:hover {
+  scale: 1.05;
 }
 
-.tiles.row .tile {
-  min-height: 130px;
-  padding: 12px 6px 10px;
-  border-radius: 26px;
+.mini .art {
+  display: grid;
+  min-width: 44px;
+  height: 40px;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--c);
+  font-size: 20px;
 }
 
-.tiles.row .art {
-  font-size: 46px;
-  -webkit-text-stroke-width: 7px;
+.mini .label {
+  -webkit-text-stroke: 5px var(--dark);
+  paint-order: stroke fill;
 }
 
-.tiles.row .label {
-  font-size: 21px;
-  -webkit-text-stroke-width: 5px;
+.mini .tag {
+  position: absolute;
+  top: -10px;
+  right: -6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--gold);
+  font-size: 13px;
 }
 
-.corner {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.mini.locked {
+  --light: #e9e1f5;
+  --c: #c9bddb;
+  --dark: #8f82a6;
+  opacity: 0.8;
 }
 
+.c-gold {
+  --c: #ffb703;
+  --light: #ffe58a;
+  --dark: #b87900;
+}
+
+/* A master round: a gold trophy stop that mixes everything before it. */
+.stop.master .disc {
+  width: 86px;
+  height: 86px;
+  font-size: 36px;
+  -webkit-text-stroke: 0;
+  box-shadow:
+    0 0 0 6px rgba(255, 215, 90, 0.55),
+    0 6px 0 var(--dark);
+}
+
+.stop.master .name {
+  background: var(--gold);
+  color: #fff;
+}
+
+.stop.master.selected .disc {
+  width: 100px;
+  height: 100px;
+}
+
+/* ---- Grown-ups ---- */
 .btn.ghost {
   background: #fff;
   color: var(--purple);
@@ -735,6 +739,192 @@ button.tile:focus-visible {
   background: var(--purple);
   color: #fff;
   box-shadow: 0 5px 0 var(--purple-dark);
+}
+
+/* ---- Statistics: calm white cards, easy to read for grown-ups ---- */
+.stage.stats {
+  left: 3vw;
+  width: auto;
+}
+
+.toggle.wide {
+  width: auto;
+  padding: 0 18px;
+  font-size: 18px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+  align-items: start;
+  width: 100%;
+}
+
+.card {
+  padding: 14px 18px;
+  border: 4px solid #fff;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 6px 0 var(--purple-light);
+  color: var(--ink);
+  overflow-x: auto;
+}
+
+.card h3 {
+  margin: 0 0 10px;
+  font-size: 19px;
+}
+
+.card p {
+  margin: 0;
+}
+
+.numbers {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  text-align: center;
+}
+
+.number b {
+  display: block;
+  color: var(--purple);
+  font-size: 30px;
+}
+
+.number span {
+  font-size: 14px;
+}
+
+.next {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.next li {
+  margin: 4px 0;
+}
+
+.next li span {
+  margin-left: 10px;
+  color: rgba(60, 9, 108, 0.7);
+  font-size: 15px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend i {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
+
+.fact.known {
+  background: #52c98a;
+}
+
+.fact.slow {
+  background: #ffd166;
+}
+
+.fact.shaky {
+  background: #ff7b8a;
+}
+
+.fact.unseen {
+  background: #ebe4f5;
+}
+
+.facts {
+  margin: 0 0 10px;
+  border-spacing: 2px;
+  font-size: 12px;
+}
+
+.facts th {
+  min-width: 18px;
+  color: rgba(60, 9, 108, 0.7);
+  font-weight: 600;
+}
+
+.facts td {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+}
+
+.letterfacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.letterfacts .fact {
+  display: grid;
+  min-width: 46px;
+  height: 36px;
+  place-items: center;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.weeks {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.week {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.bar-box {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  height: 90px;
+  border-radius: 8px;
+  background: #f3edfb;
+}
+
+.bar-fill {
+  width: 100%;
+  border-radius: 8px;
+  background: linear-gradient(var(--light, #cfaeff), var(--purple));
+}
+
+.kinds {
+  margin: 0 0 8px;
+  padding-left: 18px;
+}
+
+.kinds li {
+  margin: 3px 0;
+}
+
+.note {
+  margin-top: 8px;
+  color: rgba(60, 9, 108, 0.7);
+  font-size: 13px;
 }
 
 /* ---- The levels: stops along a winding path ---- */
@@ -1098,6 +1288,76 @@ button.tile:focus-visible {
   margin: 0;
   font-size: 13px;
   opacity: 0.7;
+}
+
+/* ---- The kitten collection: rescued kittens, and shadows of the ones still to find ---- */
+.stage.kittens {
+  overflow-y: auto;
+}
+
+.collection {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 14px;
+  width: 100%;
+}
+
+.collection .kitten {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 6px 10px;
+  border: 4px solid #fff;
+  border-radius: 22px;
+  background: linear-gradient(var(--light), var(--c));
+  box-shadow: 0 5px 0 var(--dark);
+  rotate: var(--tilt);
+}
+
+.collection .kitten img {
+  width: 82px;
+  height: auto;
+  filter: drop-shadow(0 3px 0 rgba(74, 20, 135, 0.3));
+}
+
+.collection .kitten b {
+  color: #fff;
+  font-size: 18px;
+  -webkit-text-stroke: 5px var(--dark);
+  paint-order: stroke fill;
+}
+
+.collection .kitten .badge {
+  position: absolute;
+  top: -10px;
+  left: -8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--dark);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.collection .kitten.missing {
+  --light: #e9e1f5;
+  --c: #c9bddb;
+  --dark: #8f82a6;
+}
+
+/* A shadow of the kitten: you can see there is someone to rescue, not who. */
+.collection .kitten.missing img {
+  filter: brightness(0) opacity(0.35);
+}
+
+/* A rescued level kitten sits beside its stop on the path. */
+.stop .friend {
+  position: absolute;
+  top: -4px;
+  right: -40px;
+  width: 44px;
+  filter: drop-shadow(0 3px 0 rgba(74, 20, 135, 0.3));
 }
 
 @media (prefers-reduced-motion: reduce) {

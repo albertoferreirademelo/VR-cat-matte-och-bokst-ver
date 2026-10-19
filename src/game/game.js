@@ -2,19 +2,21 @@ import * as THREE from 'three';
 import { Balloon, BALLOON_COLORS, shapeFor } from './balloon.js';
 import { Pet } from '../wardrobe/creatures/index.js';
 import { Effects } from './effects.js';
+import { Adventure } from './adventure.js';
 import { Rainbow } from './rainbow.js';
 import { StarRow } from './hud.js';
 import { makeCloud } from './clouds.js';
 import { starShape, puffy } from './shapes.js';
 import { Spring, Tweens, ease } from './motion.js';
 import { Board, BOARD_STYLES } from '../ui/board.js';
-import { Session } from '../learner.js';
+import { Session, SPEEDS } from '../learner.js';
 import { sfx, say, loadClip } from '../audio.js';
 import { sv } from '../i18n/sv.js';
 import { DEFAULT_LOOK, creatureOf, partyLook } from '../wardrobe/look.js';
 import { nameOf } from '../wardrobe/catalog.js';
 import { updateUnlocks } from '../wardrobe/unlocks.js';
 import { payRound } from '../wardrobe/shop.js';
+import { logRound } from '../stats.js';
 
 // Everything is placed around a player standing at the origin and looking along -z.
 const TOP_Y = 2.3;
@@ -29,8 +31,6 @@ const ANSWER_SPOT = new THREE.Vector3(0, 1.85, -1.75);
 const GREEN = '#1b8a4b';
 const CELEBRATIONS = ['hop', 'spin', 'flip', 'clap', 'dance', 'love'];
 const STREAKS = [3, 5, 7, 10];
-// Seconds a balloon takes to come down; going below one of these is cheered as "faster".
-const SPEEDS = [7, 5.5, 4.3, 3.4, 2.8];
 
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
 const angleToPlayer = (position) => Math.atan2(-position.x, -position.z);
@@ -116,6 +116,9 @@ export class Game {
     this.effects = new Effects();
     this.stage.add(this.sign, ...this.banners, this.stars, ...this.clouds, this.rainbow, ...this.buttons, this.homeButton, this.flyer);
     this.root.add(this.perch, this.stage, this.effects);
+    // Math is played as the kitten rescue; `mode` is it while it runs, else null.
+    this.adventure = new Adventure(this);
+    this.mode = null;
   }
 
   makeBanner(style, width, height) {
@@ -143,6 +146,7 @@ export class Game {
   showcase(look = DEFAULT_LOOK, move) {
     if (this.state !== 'showcase') {
       this.endRound();
+      this.mode = null;
       this.state = 'showcase';
       this.root.visible = true;
       this.stage.visible = false;
@@ -154,6 +158,7 @@ export class Game {
   // `inXR`: played in a headset, where the home button is the way out.
   start(deck, profile, level, inXR = false) {
     this.homeButton.visible = inXR;
+    this.mode = deck.adventure ? this.adventure : null;
     this.deck = deck;
     this.profile = profile;
     this.level = level;
@@ -166,6 +171,10 @@ export class Game {
 
   restart() {
     this.endRound();
+    if (this.mode) {
+      this.mode.begin();
+      return;
+    }
     this.session = new Session(this.profile, this.deck, this.level);
     this.stars.reset(this.session.length);
     this.sign.setText('');
@@ -178,15 +187,22 @@ export class Game {
 
   stop() {
     this.endRound();
+    this.mode = null;
     this.homeButton.visible = false;
     this.state = 'idle';
     this.root.visible = false;
   }
 
   endRound() {
+    // A round counts for the grown-ups' statistics even when stopped halfway.
+    if (this.session && !this.session.logged && this.session.answers.length) {
+      logRound(this.profile, this.session);
+      this.onSave();
+    }
     this.tweens.clear();
     this.effects.clear();
     this.clearBalloons();
+    this.adventure.end();
     this.streak = 0;
     this.rainbow.hide();
     this.flyer.visible = false;
@@ -242,7 +258,7 @@ export class Game {
     const correct = picked?.value === question.answer;
     const index = this.session.index;
     const before = this.session.pace;
-    this.session.answer(correct, this.elapsed * 1000);
+    this.session.answer(correct, this.elapsed * 1000, picked?.value ?? null);
     const after = this.session.pace;
     const faster = this.session.timed && SPEEDS.some((speed) => before > speed && after <= speed);
     this.onSave();
@@ -333,6 +349,7 @@ export class Game {
     const perfect = correct === length;
     const earned = updateUnlocks(this.profile, { perfect });
     const coins = payRound(this.profile, { correct, perfect });
+    logRound(this.profile, this.session);
     this.onSave();
     const result = `${sv.result(correct, length)} ${sv.coinsEarned(coins)}`;
     const news = sv.unlocked(earned.map(nameOf));
@@ -357,6 +374,12 @@ export class Game {
         sfx.firework();
       });
     }
+    this.revealButtons();
+    this.state = 'results';
+  }
+
+  // "Spela igen" and "Sluta" pop up after the party has started.
+  revealButtons() {
     this.buttons.forEach((button, i) => {
       this.tweens.after(1.2 + i * 0.15, () => {
         button.userData.size.value = 0;
@@ -364,7 +387,6 @@ export class Game {
         sfx.bloop();
       });
     });
-    this.state = 'results';
   }
 
   sendBalloonsAway() {
@@ -382,6 +404,7 @@ export class Game {
   // The meshes a wand or mouse click can hit right now.
   targets() {
     const home = this.stage.visible && this.homeButton.visible ? [this.homeButton] : [];
+    if (this.mode && this.state !== 'results') return [...this.mode.targets(), ...home];
     if (this.state === 'asking') {
       const balloons = this.balloons.filter((b) => b.mode === 'fall' && b.age > 0).map((b) => b.hit);
       return [...balloons, ...(this.question.sound ? [this.sign] : []), ...home];
@@ -396,6 +419,7 @@ export class Game {
 
   setHover(meshes) {
     for (const balloon of this.balloons) balloon.hovered = meshes.has(balloon.hit);
+    this.adventure.setHover(meshes);
     for (const button of this.buttons) button.hovered = meshes.has(button);
     this.homeButton.hovered = meshes.has(this.homeButton);
     this.sign.hovered = meshes.has(this.sign);
@@ -423,7 +447,9 @@ export class Game {
     this.camera.getWorldPosition(this.cameraPosition);
     this.tweens.update(dt);
 
-    if (this.state === 'asking') {
+    if (this.mode) {
+      this.mode.update(dt, t);
+    } else if (this.state === 'asking') {
       this.elapsed += dt;
       const timed = this.session.timed;
       // With a time limit the balloons sink all the way down; without one they come down and wait.

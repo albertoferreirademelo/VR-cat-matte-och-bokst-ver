@@ -7,7 +7,7 @@ import { sv } from '../i18n/sv.js';
 const GOALS = [...CREATURES, ...ITEMS, ...GEAR].filter((entry) => entry.need);
 
 const masteredLevels = (profile) =>
-  DECKS[profile.track].levels.filter((level) => levelStars(profile, level) === 3).length;
+  DECKS[profile.track].levels.filter((level) => !level.master && levelStars(profile, level) === 3).length;
 
 // How far a player has come towards a goal that takes a while, as { have, need }.
 export function progressOf(profile, entry) {

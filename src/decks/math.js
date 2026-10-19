@@ -1,8 +1,11 @@
+import { withMasterRounds } from './master.js';
+
 // The math deck: levels are small families of facts, ordered from easy to hard.
 const OPS = {
   '+': { symbol: '+', apply: (a, b) => a + b },
   '-': { symbol: '−', apply: (a, b) => a - b },
   '*': { symbol: '·', apply: (a, b) => a * b },
+  '/': { symbol: '/', apply: (a, b) => a / b },
 };
 
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
@@ -25,12 +28,17 @@ function facts(op, as, bs, keep = () => true) {
   return items;
 }
 
+// Division as the times tables backwards: 12 / 3 = 4 because 3 · 4 = 12.
+function divisions(set) {
+  return set.flatMap((b) => facts('/', range(1, 10).map((answer) => answer * b), [b], (a) => a % b === 0));
+}
+
 function tables(set) {
   const all = [...facts('*', set, range(1, 10)), ...facts('*', range(1, 10), set)];
   return [...new Map(all.map((item) => [item.key, item])).values()];
 }
 
-const LEVELS = [
+const LEVELS = withMasterRounds([
   {
     id: 'add-1-2',
     badge: '+1',
@@ -90,7 +98,10 @@ const LEVELS = [
   { id: 'mul-2-5-10', badge: '·2', color: 'orange', name: 'Gånger 2, 5 och 10', items: tables([2, 5, 10]) },
   { id: 'mul-3-4', badge: '·3', color: 'orange', name: 'Gånger 3 och 4', items: tables([3, 4]) },
   { id: 'mul-6-9', badge: '·9', color: 'orange', name: 'Gånger 6, 7, 8 och 9', items: tables([6, 7, 8, 9]) },
-];
+  { id: 'div-2-5-10', badge: '/2', color: 'green', name: 'Delat med 2, 5 och 10', items: divisions([2, 5, 10]) },
+  { id: 'div-3-4', badge: '/3', color: 'green', name: 'Delat med 3 och 4', items: divisions([3, 4]) },
+  { id: 'div-6-9', badge: '/9', color: 'green', name: 'Delat med 6, 7, 8 och 9', items: divisions([6, 7, 8, 9]) },
+]);
 
 function shuffle(list) {
   for (let i = list.length - 1; i > 0; i--) {
@@ -107,11 +118,16 @@ function distractors(item, count) {
     item.op === '*'
       ? [a * (b - 1), a * (b + 1), (a - 1) * b, (a + 1) * b]
       : [answer - 1, answer + 1, answer - 2, answer + 2];
+  // Dividing by mistake with the wrong table, or multiplying instead, are tempting wrong answers.
   const far =
-    item.op === '*' ? [answer - 1, answer + 1, answer + 2, answer - 2] : [answer + 10, answer - 10, answer + 3];
+    item.op === '*'
+      ? [answer - 1, answer + 1, answer + 2, answer - 2]
+      : item.op === '/'
+        ? [answer + 3, answer - 3, b]
+        : [answer + 10, answer - 10, answer + 3];
   const picked = [];
   for (const value of [...shuffle(near), ...far]) {
-    if (value < 0 || value === answer || picked.includes(value)) continue;
+    if (value < (item.op === '/' ? 1 : 0) || value === answer || picked.includes(value)) continue;
     picked.push(value);
     if (picked.length === count) break;
   }
@@ -121,6 +137,7 @@ function distractors(item, count) {
 export const mathDeck = {
   id: 'matte',
   name: 'Matte',
+  adventure: true, // played as the kitten rescue in src/game/adventure.js
   levels: LEVELS,
   distractors,
   ask: (item) => `${item.prompt} = ?`,

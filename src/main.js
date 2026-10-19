@@ -6,7 +6,7 @@ import { Menu, counter } from './ui/menu.js';
 import { Room } from './room/room.js';
 import { DECKS } from './decks/index.js';
 import { save } from './profiles.js';
-import { unlockAudio, sfx } from './audio.js';
+import { unlockAudio, sfx, music } from './audio.js';
 import { sv } from './i18n/sv.js';
 import { creatureOf } from './wardrobe/look.js';
 import { DEFAULT_GEAR } from './wardrobe/gear.js';
@@ -127,6 +127,7 @@ detectXR();
 
 async function start(profile, level, useXR) {
   unlockAudio();
+  music.setOn(profile.music !== false);
   equip(profile.gear);
   view = 'game';
   fitCamera();

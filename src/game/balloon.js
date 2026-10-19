@@ -40,7 +40,7 @@ const hitMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: fals
 
 const toCamera = new THREE.Vector3();
 
-function labelTexture(text) {
+export function labelTexture(text) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 256;
   const g = canvas.getContext('2d');

@@ -1,3 +1,5 @@
+import { withMasterRounds } from './master.js';
+
 // The letters deck: hear a letter, find it among the balloons.
 // The voice says the letter's name. For the vowels that is also their long sound.
 // The recording has no w, so w is left out for now.
@@ -15,13 +17,19 @@ function group(id, color, chars, badge = chars[0].toUpperCase(), name = [...char
 
 // A few letters at a time, in roughly the order Swedish beginner books use:
 // common letters whose sounds are easy to hear come first.
+// "Alla bokstäver" at the end already mixes everything, so master rounds only come between.
 const LEVELS = [
-  group('letters-1', 'pink', 'osalm'),
-  group('letters-2', 'pink', 'eirnv'),
-  group('letters-3', 'pink', 'tdkgh'),
-  group('letters-4', 'pink', 'ufpbå'),
-  group('letters-5', 'pink', 'äöyj'),
-  group('letters-6', 'pink', 'cxzq'),
+  ...withMasterRounds(
+    [
+      group('letters-1', 'pink', 'osalm'),
+      group('letters-2', 'pink', 'eirnv'),
+      group('letters-3', 'pink', 'tdkgh'),
+      group('letters-4', 'pink', 'ufpbå'),
+      group('letters-5', 'pink', 'äöyj'),
+      group('letters-6', 'pink', 'cxzq'),
+    ],
+    { last: false },
+  ),
   group('vowels', 'blue', 'aeiouyåäö', 'Å', 'Vokaler'),
   group('all', 'orange', 'abcdefghijklmnopqrstuvxyzåäö', 'A–Ö', 'Alla bokstäver'),
 ];
